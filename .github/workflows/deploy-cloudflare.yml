@@ -5,6 +5,7 @@ name: Deploy Cloudflare Worker
 #   CLOUDFLARE_API_TOKEN          (wajib — token Workers/DO)
 #   CLOUDFLARE_TURN_KEY_ID        (opsional — TURN key Cloudflare, fitur premium)
 #   CLOUDFLARE_TURN_KEY_API_TOKEN (opsional)
+# Catatan: secrets TIDAK boleh dipakai langsung di `if:` — makanya dipindah ke env.
 on:
   push:
     branches: [main]
@@ -14,6 +15,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      CF_TURN_ID: ${{ secrets.CLOUDFLARE_TURN_KEY_ID }}
+      CF_TURN_TOKEN: ${{ secrets.CLOUDFLARE_TURN_KEY_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,18 +33,18 @@ jobs:
         run: npx --yes wrangler@4 deploy
 
       - name: Set secret TURN_KEY_ID
-        if: ${{ secrets.CLOUDFLARE_TURN_KEY_ID != '' }}
+        if: ${{ env.CF_TURN_ID != '' }}
         working-directory: online/backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: echo "${{ secrets.CLOUDFLARE_TURN_KEY_ID }}" | npx --yes wrangler@4 secret put TURN_KEY_ID
+        run: echo "$CF_TURN_ID" | npx --yes wrangler@4 secret put TURN_KEY_ID
 
       - name: Set secret TURN_KEY_API_TOKEN
-        if: ${{ secrets.CLOUDFLARE_TURN_KEY_API_TOKEN != '' }}
+        if: ${{ env.CF_TURN_TOKEN != '' }}
         working-directory: online/backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: echo "${{ secrets.CLOUDFLARE_TURN_KEY_API_TOKEN }}" | npx --yes wrangler@4 secret put TURN_KEY_API_TOKEN
+        run: echo "$CF_TURN_TOKEN" | npx --yes wrangler@4 secret put TURN_KEY_API_TOKEN
 
       - name: Cek URL worker
         run: |
