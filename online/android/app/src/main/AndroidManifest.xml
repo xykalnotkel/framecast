@@ -6,7 +6,7 @@
     <application
         android:label="FrameCast"
         android:icon="@android:drawable/ic_menu_compass"
-        android:theme="@style/Theme.AppCompat.DayNight.Dark">
+        android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity
             android:name=".MainActivity"

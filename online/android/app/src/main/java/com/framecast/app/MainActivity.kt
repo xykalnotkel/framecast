@@ -1,9 +1,9 @@
 package com.framecast.app
 
+import android.app.Activity
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,7 +22,7 @@ import org.webrtc.SurfaceViewRenderer
  *       WebRtcSession buat offer -> host jawab -> video P2P di renderer ->
  *       input (touch/keyboard) dikirim via DataChannel.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private lateinit var renderer: SurfaceViewRenderer
     private var ws: WebSocket? = null
