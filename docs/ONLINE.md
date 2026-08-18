@@ -167,32 +167,78 @@ WebRTC otomatis tembus NAT biasa (host candidates + STUN). TAPI:
 ---
 
 
-## 6b. Fitur PREMIUM (gating)
+## 6b. Model bisnis: PC gratis, HP PREMIUM
 
-Sistem punya konsep **plan host: `free` atau `premium`** (di-set lewat
-`--plan` di host). Ini cara "bisnis" tanpa bikin 2 aplikasi:
+**Aturan main (v0.3):**
 
-| Fitur | Free | Premium |
+| Remote | Biaya | Cara masuk |
 |---|---|---|
-| P2P langsung (LAN / NAT ringan) | ✅ | ✅ |
-| **TURN relay** (CGNAT seluler, tembus mana-mana) | ❌ | ✅ |
-| High-perf DXGI + NVENC (120fps) | ❌ | ✅ |
-| Badge PREMIUM di client web/Android | — | ✅ |
+| **PC / desktop** | GRATIS | ID + PIN (tanpa akun) ATAU login akun sama |
+| **HP (Android)** | **PREMIUM** | login akun SAMA di HP & device lain — tanpa ID+PIN, sistem deteksi model HP, **gak bisa connect kalau akun gak premium** |
 
-Cara kerja: host daftar dengan plan → backend kasih tau client di `join_ok`
-→ kalau premium, client ambil TURN credential dari `/api/turn` & badge
-muncul. Gating server-side (`/api/turn` cuma balas kalau host premium) —
-jadi bukan cuma pajangan di UI.
+Cara kerja:
+1. **Akun** (register/login email+password) disimpan di backend (Cloudflare
+   DO, password di-hash PBKDF2, sesi token 30 hari).
+2. **Device registry** — tiap login, device daftar dengan:
+   - PC: `type=pc`, model/platform OS
+   - HP: `type=phone`, **model otomatis** (Android: `Build.MANUFACTURER + MODEL`,
+     mis. "Samsung SM-A525F")
+   Client lihat daftar device milik akun (`/api/devices`) lengkap dengan
+   status online + model.
+3. **Gating di server** (`checkJoin` di worker):
+   - connect ke **PC** → selalu boleh (gratis) — via PIN atau akun sama
+   - connect ke **HP** → cek akun client: kalau `plan != premium` →
+     `join_fail reason=premium_required`
+   Jadi bukan cuma pajangan UI — server yang nolak.
+4. **Jadikan HP host**: app Android pakai MediaProjection + WebRTC
+   (`ScreenCapturer` + `HostSession`), daftar sebagai `type=phone` dengan
+   token akun. Client (akun sama, premium) lihat HP itu di daftar device.
 
+### Naikin akun ke PREMIUM (test)
 ```bash
-python host_rtc.py --plan premium --capture dxgi --codec h264 --fps 120
+# dengan token akun + dev key (ganti payment integration nanti)
+curl -X POST https://framecast-signal.akuntiktok76y.workers.dev/api/upgrade \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<TOKEN_AKUN>","dev_key":"<PREMIUM_DEV_KEY>"}'
+```
+`PREMIUM_DEV_KEY` = secret worker (buat development; nanti diganti
+payment webhook Stripe/Google Play/QRIS).
+
+### Host PC dengan akun (opsional)
+```bash
+python host_rtc.py --account-email kamu@email.com --account-password rahasia \
+  --device-type pc --name "PC-Kantor"
+# PIN tetap muncul (akses gratis buat siapa saja yang tahu PIN),
+# plus client login akun sama bisa connect tanpa PIN.
 ```
 
-Integrasi pembayaran (Stripe / Google Play / QRIS) belum dipasang — tinggal
-nentuin paket & nyambungin ke penentuan plan host. Struktur backend sudah
-siap tinggal isi.
+### Host HP (Python, simulasi buat tes gating)
+```bash
+python host_rtc.py --account-email kamu@email.com --account-password rahasia \
+  --device-type phone --model "Samsung SM-A525F" --capture synthetic
+```
+(di HP asli, pakai app Android — lihat `online/android`.)
 
-## 6c. HIGH-PERF: DXGI + NVENC (120 fps)
+## 6c. TURN — jujur soal kartu kredit & alternatif
+
+**Fakta:** Cloudflare Realtime TURN memang butuh aktifkan billing
+(kartu kredit) — free tier 1.000 GB/bulan, tapi setup-nya minta CC.
+
+**Keputusan v0.3:** premium **TIDAK bergantung TURN**. Premium = remote HP.
+TURN jadi **add-on opsional**:
+- Kode TURN tetap ada (`/api/turn`, client web/Android/Python sudah
+  otomatis ambil kalau akun premium & TURN key terpasang).
+- Kalau nanti kamu mau TURN tanpa kartu kredit:
+  1. **Self-host coturn** di VPS yang kamu punya (Oracle free tier butuh CC
+     saat signup, tapi tetap opsi paling populer) — satu command:
+     `coturn -n --lt-cred-mech --user=user:pass --realm=framecast`
+  2. **Metered.ca open relay** — gratis buat development/tes (jangan produksi).
+- P2P (STUN) tetap jalan gratis buat mayoritas koneksi (LAN, Wi-Fi sama,
+  NAT ringan). CGNAT seluler: perlu TURN — paling enak nanti kalau sudah
+  ada payment/premium beneran.
+
+
+## 6d. HIGH-PERF: DXGI + NVENC (120 fps)
 
 Modul `online/highperf.py` — jalur 120+ fps di Windows + GPU:
 
@@ -252,7 +298,7 @@ paling akhir sebagai fitur push.
 |---|---|---|
 | v2.0 | signaling lokal + host + client CLI (P2P WebRTC) | ✅ **selesai & teruji** |
 | v2.1 | Cloudflare Worker produksi + web client + Android | ✅ kode siap, tinggal deploy |
-| v2.2 | **TURN Cloudflare Realtime** (gratis 1000GB) + premium gating | ✅ kode siap (butuh TURN key di dashboard) |
+| v2.2 | TURN Cloudflare (opsional, butuh billing) — premium gak tergantung TURN | ✅ kode siap |
 | v2.3 | host jadi .exe (PyInstaller) + autostart/tray icon | 📋 |
 | v2.4 | OneSignal push + daftar host favorit di client | 📋 opsional |
 | v2.5 | host Android (MediaProjection capture) | 📋 biar HP juga bisa jadi host |

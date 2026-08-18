@@ -18,11 +18,17 @@ cuma sebagai transport POC — nanti diganti UDP/WebRTC, lihat roadmap).
 
 ## 🔥 Yang baru: sistem ONLINE (v2) — ID + PIN, gratis, dari mana saja
 
-Folder **`online/`** berisi versi AnyDesk-style: host PC dapat **ID + PIN**,
-client connect dari **Web / Android (Kotlin) / Windows**, koneksi **WebRTC P2P**
-(video & input langsung host↔client, backend cuma relay SDP). Backend pakai
-**Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit)** — kode
-lengkap + sudah teruji end-to-end (termasuk lewat worker sungguhan di internet).
+Folder **`online/`** berisi versi AnyDesk-style + sistem akun. **Model bisnis:**
+
+| Remote | Biaya | Cara masuk |
+|---|---|---|
+| **PC / desktop** | GRATIS | ID + PIN (tanpa akun) |
+| **HP (Android)** | **PREMIUM** | login akun SAMA di HP & device lain, tanpa ID+PIN — deteksi model HP, gak bisa connect kalau akun gak premium |
+
+Koneksi **WebRTC P2P** (video & input langsung host↔client). Backend
+**Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit)** — auth
+akun (PBKDF2), registri device, gating premium di server. Sudah teruji
+end-to-end di worker produksi (free→HP ditolak, premium→HP connect).
 
 **Download siap pakai (GitHub Release v0.2.0):**
 - 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.2.0/FrameCastHost.exe

@@ -18,6 +18,7 @@ jobs:
     env:
       CF_TURN_ID: ${{ secrets.CLOUDFLARE_TURN_KEY_ID }}
       CF_TURN_TOKEN: ${{ secrets.CLOUDFLARE_TURN_KEY_API_TOKEN }}
+      CF_PREMIUM_KEY: ${{ secrets.PREMIUM_DEV_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,6 +46,13 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: echo "$CF_TURN_TOKEN" | npx --yes wrangler@4 secret put TURN_KEY_API_TOKEN
+
+      - name: Set secret PREMIUM_DEV_KEY
+        if: ${{ env.CF_PREMIUM_KEY != '' }}
+        working-directory: online/backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: echo "$CF_PREMIUM_KEY" | npx --yes wrangler@4 secret put PREMIUM_DEV_KEY
 
       - name: Cek URL worker
         run: |

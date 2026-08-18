@@ -2,10 +2,19 @@ name = "framecast-signal"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 
-# Durable Object = ruang signaling per host ID (SQLite-backed, gratis di free tier)
+# Durable Objects:
+#   HostRoom   = ruang signaling per host ID (relay SDP/ICE)
+#   GlobalRoom = auth akun + registri device + status host
 [durable_objects]
-bindings = [{ name = "HOST_ROOMS", class_name = "HostRoom" }]
+bindings = [
+  { name = "HOST_ROOMS", class_name = "HostRoom" },
+  { name = "GLOBAL", class_name = "GlobalRoom" },
+]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["HostRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["GlobalRoom"]

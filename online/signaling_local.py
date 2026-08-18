@@ -2,8 +2,14 @@
 """Signaling server FrameCast Online — versi lokal buat development & tes.
 
 Logikanya MIRIP dengan Cloudflare Worker (online/backend/src/index.ts) yang
-dipakai untuk produksi gratis. Server ini cuma relay SDP/ICE + verifikasi PIN;
-media & input tetap P2P host<->client.
+dipakai untuk produksi gratis. Server ini cuma relay SDP/ICE + verifikasi
+PIN/akun; media & input tetap P2P host<->client.
+
+Untuk tes MODE AKUN (remote HP = premium):
+  - host  : daftar dengan token "test:<email>" + device_type + plan
+  - client: join dengan token "test:<email>" (akun sama)
+  - phone host + akun free  -> premium_required
+  - phone host + akun premium -> boleh (host --plan premium)
 
 Jalankan:  python signaling_local.py --port 9010
 """
@@ -29,6 +35,10 @@ class Room:
         self.host_ws = ws
         self.clients = {}  # client_id -> ws
         self.created_at = time.time()
+        self.device_type = "pc"      # "pc" | "phone"
+        self.model = ""
+        self.account_email = None    # kalau host daftar pakai akun
+        self.plan = "free"
 
     def is_online(self):
         return self.host_ws is not None
@@ -67,14 +77,18 @@ async def handle(ws):
                     msg.get("salt", ""),
                     ws,
                 )
+                room.device_type = "phone" if msg.get("device_type") == "phone" else "pc"
+                room.model = msg.get("model", "")
                 room.plan = "premium" if msg.get("plan") == "premium" else "free"
+                token = msg.get("account_token", "")
+                if isinstance(token, str) and token.startswith("test:"):
+                    room.account_email = token[5:]
                 ROOMS[host_id] = room
                 role = "host"
                 await send(ws, {"type": "registered", "host_id": host_id})
-                print(f"[room] host online: {host_id} ({room.name}) plan={room.plan}")
-
-            elif role == "host" and t == "client_joined_check":
-                pass  # reserved
+                print(f"[room] host online: {host_id} ({room.name}) "
+                      f"type={room.device_type} plan={room.plan} "
+                      f"acct={room.account_email or '-'}")
 
             elif role == "host" and t == "signal":
                 client_id = msg.get("to")
@@ -88,9 +102,20 @@ async def handle(ws):
                 room = ROOMS.get(host_id)
                 if room is None or not room.is_online():
                     await send(ws, {"type": "join_fail", "reason": "offline"})
-                elif not verify_pin(str(msg.get("pin", "")), room.salt, room.pin_hash):
-                    await send(ws, {"type": "join_fail", "reason": "pin_salah"})
-                else:
+                    continue
+
+                # MODE AKUN (token "test:<email>")
+                token = msg.get("token", "")
+                if isinstance(token, str) and token.startswith("test:"):
+                    email = token[5:]
+                    if room.account_email != email:
+                        await send(ws, {"type": "join_fail", "reason": "not_yours",
+                                        "message": "device ini bukan milik akun kamu"})
+                        continue
+                    if room.device_type == "phone" and room.plan != "premium":
+                        await send(ws, {"type": "join_fail", "reason": "premium_required",
+                                        "message": "Remote HP butuh akun PREMIUM"})
+                        continue
                     client_id = uuid.uuid4().hex[:8]
                     room.clients[client_id] = ws
                     role = "client"
@@ -98,13 +123,33 @@ async def handle(ws):
                         "type": "join_ok",
                         "client_id": client_id,
                         "host": {
-                            "name": room.name,
-                            "platform": room.platform,
-                            "plan": getattr(room, "plan", "free"),
+                            "name": room.name, "platform": room.platform,
+                            "type": room.device_type, "model": room.model, "plan": room.plan,
                         },
                     })
                     await send(room.host_ws, {"type": "client_joined", "client_id": client_id})
-                    print(f"[room] client {client_id} join host {host_id}")
+                    print(f"[room] client {client_id} (akun {email}) join {host_id}")
+                    continue
+
+                # MODE PIN (gratis) — HP harus via akun premium
+                if room.device_type == "phone":
+                    await send(ws, {"type": "join_fail", "reason": "premium_required",
+                                    "message": "Remote HP butuh login akun PREMIUM"})
+                    continue
+                if not verify_pin(str(msg.get("pin", "")), room.salt, room.pin_hash):
+                    await send(ws, {"type": "join_fail", "reason": "pin_salah"})
+                    continue
+                client_id = uuid.uuid4().hex[:8]
+                room.clients[client_id] = ws
+                role = "client"
+                await send(ws, {
+                    "type": "join_ok",
+                    "client_id": client_id,
+                    "host": {"name": room.name, "platform": room.platform,
+                             "type": "pc", "model": "", "plan": "free"},
+                })
+                await send(room.host_ws, {"type": "client_joined", "client_id": client_id})
+                print(f"[room] client {client_id} join host {host_id} (PIN)")
 
             elif role == "client" and t == "signal":
                 await send(room.host_ws, {"type": "signal", "from": client_id, "payload": msg["payload"]})

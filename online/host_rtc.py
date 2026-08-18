@@ -98,6 +98,43 @@ class Host:
         self.pc = None
         self.dc = None
         self.ws = None
+        self.account_token = None
+        self.account_email = None
+
+    # ---------- login akun (opsional) ----------
+    async def login_account(self):
+        """Login dengan akun (email+password) -> token. Host terdaftar sebagai
+        device milik akun; client yang login akun sama bisa connect tanpa PIN."""
+        if self.args.account_token:
+            self.account_token = self.args.account_token
+        elif self.args.account_email and self.args.account_password:
+            import urllib.request
+
+            api = self.args.signaling.replace("ws://", "http://").replace("wss://", "https://")
+            api = api.split("/ws")[0]
+            req = urllib.request.Request(
+                f"{api}/api/login",
+                data=json.dumps({
+                    "email": self.args.account_email,
+                    "password": self.args.account_password,
+                    "device": {
+                        "type": self.args.device_type,
+                        "model": self.args.model,
+                        "platform": sys.platform,
+                        "name": self.args.name,
+                    },
+                }).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data = json.loads(r.read())
+                self.account_token = data["token"]
+                self.account_email = data.get("email")
+                print(f"[akun] login OK: {self.account_email} (plan {data.get('plan', '?')})")
+            except Exception as e:
+                print(f"[akun] login GAGAL ({e}) — lanjut mode PIN saja")
+                self.account_token = None
 
     # ---------- input dari client ----------
     def on_input(self, raw):
@@ -166,14 +203,22 @@ class Host:
         salt = new_salt()
         pin = self.args.pin or make_pin()
         ph = pin_hash(pin, salt)
+        if self.args.device_type == "phone":
+            pin = ""  # HP remote tidak pakai PIN — murni akun + premium
 
         print("=" * 46)
         print("  FrameCast Online — HOST")
         print(f"  ID   : {format_id(self.host_id)}")
-        print(f"  PIN  : {pin}   (berlaku selama sesi ini)")
+        print(f"  Tipe : {self.args.device_type.upper()}  ({self.args.model or 'auto'})")
+        if self.args.device_type == "pc":
+            print(f"  PIN  : {pin}   (berlaku selama sesi ini — akses GRATIS)")
+        else:
+            print(f"  PIN  : -   (HP remote = login akun PREMIUM, tanpa PIN)")
         print(f"  Nama : {self.args.name}")
-        print(f"  Plan : {self.args.plan.upper()}  (premium = client dapat TURN relay)")
         print("=" * 46)
+
+        # login akun (opsional; wajib buat host HP)
+        await self.login_account()
 
         async with websockets.connect(
             f"{self.args.signaling}?host={self.host_id}",
@@ -189,12 +234,16 @@ class Host:
                 "pin_hash": ph,
                 "salt": salt,
                 "plan": self.args.plan,
+                "device_type": self.args.device_type,
+                "model": self.args.model,
+                "account_token": self.account_token,
             })
             reply = json.loads(await ws.recv())
             if reply.get("type") != "registered":
                 print("Gagal daftar:", reply)
                 return 1
-            print(f"[signaling] terdaftar. Tunggu client connect dengan ID+PIN di atas...")
+            print(f"[signaling] terdaftar. Tunggu client connect dengan ID+PIN "
+                  f"(PC, gratis) atau akun sama (HP, premium)...")
 
             async for raw in ws:
                 msg = json.loads(raw)
@@ -244,9 +293,16 @@ def main():
     ap.add_argument("--host-id", default=None)
     ap.add_argument("--pin", default=None)
     ap.add_argument("--name", default="PC-Kantor")
+    ap.add_argument("--device-type", choices=["pc", "phone"], default="pc",
+                    help="pc = remote GRATIS (ID+PIN). phone = remote PREMIUM "
+                         "(login akun sama, tanpa PIN).")
+    ap.add_argument("--model", default="", help="nama model device (mis. HP: 'Samsung SM-A525F')")
     ap.add_argument("--plan", choices=["free", "premium"], default="free",
                     help="premium = client dapat TURN relay (Cloudflare) & fitur "
                          "high-perf. free = P2P saja (hosting biasa).")
+    ap.add_argument("--account-email", default=None, help="login akun (opsional; wajib buat host phone)")
+    ap.add_argument("--account-password", default=None, help="password akun")
+    ap.add_argument("--account-token", default=None, help="token akun langsung (skip login)")
     ap.add_argument("--capture", choices=["mss", "synthetic", "dxgi"], default="mss",
                     help="dxgi = DXGI Desktop Duplication (Windows, high-perf, "
                          "120fps). mss = GDI (default). synthetic = frame tes.")
