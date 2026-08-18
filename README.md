@@ -24,9 +24,9 @@ client connect dari **Web / Android (Kotlin) / Windows**, koneksi **WebRTC P2P**
 **Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit)** — kode
 lengkap + sudah teruji end-to-end (termasuk lewat worker sungguhan di internet).
 
-**Download siap pakai (GitHub Release v0.1.0):**
-- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.1.0/FrameCastHost.exe
-- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.1.0/FrameCastClient-debug.apk
+**Download siap pakai (GitHub Release v0.2.0):**
+- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.2.0/FrameCastHost.exe
+- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.2.0/FrameCastClient-debug.apk
 - 🌐 **Client Web (live):** https://xykalnotkel.github.io/framecast
 - ☁️ **Signaling backend (live):** https://framecast-signal.akuntiktok76y.workers.dev
 
