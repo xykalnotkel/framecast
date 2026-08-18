@@ -1,7 +1,7 @@
 # FrameCast Android (Kotlin) — Client
 
 Aplikasi Android untuk **melihat & mengontrol PC** (client). Pakai library
-WebRTC resmi (`org.webrtc:google-webrtc`, gratis) + OkHttp WebSocket.
+WebRTC resmi (`io.github.webrtc-sdk:android:125.6422.07`, gratis) + OkHttp WebSocket.
 
 > Bisa juga dipakai sebagai HOST nanti: tinggal tambah capture layar
 > (`MediaProjection` + `VirtualDisplay`) + `VideoSource` sebagai track
