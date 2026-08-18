@@ -5,12 +5,15 @@ import org.json.JSONObject
 import org.webrtc.DataChannel
 import org.webrtc.EglBase
 import org.webrtc.IceCandidate
+import org.webrtc.MediaStream
 import org.webrtc.MediaStreamTrack
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RtpReceiver
 import org.webrtc.RtpTransceiver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceViewRenderer
+import org.webrtc.VideoTrack
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
@@ -35,27 +38,23 @@ class WebRtcSession(
         private var factory: PeerConnectionFactory? = null
 
         private fun factory(context: Context): PeerConnectionFactory {
-            var f = factory
-            if (f == null) {
-                synchronized(this) {
-                    f = factory
-                    if (f == null) {
-                        PeerConnectionFactory.initialize(
-                            PeerConnectionFactory.InitializationOptions.builder(context)
-                                .createInitializationOptions()
-                        )
-                        val eglBase = EglBase.create()
-                        f = PeerConnectionFactory.builder()
-                            .setVideoEncoderFactory(org.webrtc.DefaultVideoEncoderFactory(
-                                eglBase.eglBaseContext, true, true))
-                            .setVideoDecoderFactory(org.webrtc.DefaultVideoDecoderFactory(
-                                eglBase.eglBaseContext))
-                            .createPeerConnectionFactory()
-                        factory = f
-                    }
-                }
+            factory?.let { return it }
+            synchronized(this) {
+                factory?.let { return it }
+                PeerConnectionFactory.initialize(
+                    PeerConnectionFactory.InitializationOptions.builder(context)
+                        .createInitializationOptions()
+                )
+                val eglBase = EglBase.create()
+                val created = PeerConnectionFactory.builder()
+                    .setVideoEncoderFactory(org.webrtc.DefaultVideoEncoderFactory(
+                        eglBase.eglBaseContext, true, true))
+                    .setVideoDecoderFactory(org.webrtc.DefaultVideoDecoderFactory(
+                        eglBase.eglBaseContext))
+                    .createPeerConnectionFactory()
+                factory = created
+                return created
             }
-            return f
         }
     }
 
@@ -68,6 +67,16 @@ class WebRtcSession(
             //   .setUsername("u").setPassword("p").createIceServer()
         ))
         val connection = factory(appContext).createPeerConnection(rtcConfig, object : PeerConnection.Observer {
+            override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
+            override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit
+            override fun onIceConnectionReceivingChange(receiving: Boolean) = Unit
+            override fun onIceGatheringChange(state: PeerConnection.IceGatheringState) = Unit
+            override fun onIceCandidatesRemoved(candidates: Array<IceCandidate>) = Unit
+            override fun onAddStream(stream: MediaStream) = Unit
+            override fun onRemoveStream(stream: MediaStream) = Unit
+            override fun onDataChannel(channel: DataChannel) = Unit
+            override fun onRenegotiationNeeded() = Unit
+
             override fun onIceCandidate(candidate: IceCandidate) {
                 onSignal(JSONObject()
                     .put("type", "candidate")
@@ -76,9 +85,9 @@ class WebRtcSession(
                     .put("sdpMLineIndex", candidate.sdpMLineIndex))
             }
 
-            override fun onTrack(receiver: org.webrtc.RtpReceiver) {
-                val track = receiver.track()
-                if (track?.kind() == MediaStreamTrack.VIDEO_TRACK_KIND) {
+            override fun onTrack(transceiver: RtpTransceiver) {
+                val track = transceiver.track()
+                if (track?.kind() == MediaStreamTrack.VIDEO_TRACK_KIND && track is VideoTrack) {
                     track.addSink(renderer) // render ke SurfaceViewRenderer (GPU)
                 }
             }
