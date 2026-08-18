@@ -50,7 +50,7 @@
             android:id="@+id/btnHost"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📱 Jadikan HP Host"
+            android:text="Jadikan HP Host"
             android:layout_marginStart="8dp" />
     </LinearLayout>
 

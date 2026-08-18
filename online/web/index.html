@@ -3,107 +3,213 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FrameCast — Remote Desktop Online</title>
+<title>FrameCast — Remote Desktop</title>
 <style>
-  :root { --bg:#0f1117; --card:#171b26; --line:#262c3b; --txt:#e6e9f2; --dim:#8b93a7; --acc:#4f7cff; --gold:#f5b93e; }
-  * { box-sizing: border-box; }
-  body { margin:0; min-height:100vh; font-family:system-ui,Segoe UI,Roboto,sans-serif;
-    background:var(--bg); color:var(--txt); display:flex; flex-direction:column; }
-  header { padding:14px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
-  header b { letter-spacing:.3px; }
-  header .dot { width:8px; height:8px; border-radius:50%; background:#666; display:inline-block; }
-  header .dot.on { background:#2fd06a; box-shadow:0 0 8px #2fd06a; }
-  header .badge { margin-left:auto; background:linear-gradient(135deg,#3a2d0e,#2a1f06); color:var(--gold);
-    border:1px solid #6b4f14; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
-    display:none; letter-spacing:.5px; }
-  header .usr { margin-left:auto; color:var(--dim); font-size:13px; }
-  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
-  #card { width:100%; max-width:440px; background:var(--card); border:1px solid var(--line);
-    border-radius:16px; padding:26px 24px; box-shadow:0 12px 40px rgba(0,0,0,.4); }
-  #card .logo { text-align:center; font-size:21px; font-weight:800; margin-bottom:4px; }
-  #card .sub { text-align:center; color:var(--dim); font-size:13px; margin-bottom:18px; }
-  .tabs { display:flex; gap:6px; margin-bottom:14px; background:#10131c; border-radius:10px; padding:4px; }
-  .tab { flex:1; text-align:center; padding:8px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--dim); }
-  .tab.on { background:var(--acc); color:#fff; font-weight:600; }
-  .panel { display:none; }
+  :root {
+    --bg: #080a11;
+    --glass: rgba(255,255,255,.055);
+    --glass-strong: rgba(255,255,255,.085);
+    --line: rgba(255,255,255,.10);
+    --line-soft: rgba(255,255,255,.07);
+    --txt: #eef1f8;
+    --dim: #9aa4b8;
+    --acc: #7c93ff;
+    --acc-soft: rgba(124,147,255,.14);
+    --ok: #3fcf7e;
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--txt);
+    background:
+      radial-gradient(900px 600px at 12% -8%, rgba(99,102,241,.14), transparent 60%),
+      radial-gradient(800px 560px at 95% 110%, rgba(45,212,191,.10), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+  /* header */
+  header {
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line-soft);
+    backdrop-filter: blur(14px);
+    background: rgba(255,255,255,.02);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px; font-size:15px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 10px;
+    background: linear-gradient(145deg, rgba(124,147,255,.28), rgba(124,147,255,.08));
+    border: 1px solid rgba(124,147,255,.35);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 800; color: #cdd8ff;
+  }
+  header .dot { width:8px; height:8px; border-radius:50%; background:#5a6273; transition:.3s; }
+  header .dot.on { background: var(--ok); box-shadow: 0 0 10px rgba(63,207,126,.55); }
+  #hdrState { color: var(--dim); font-size: 13px; }
+  .spacer { flex:1; }
+  .badge {
+    background: linear-gradient(145deg, rgba(245,185,62,.16), rgba(245,185,62,.05));
+    color: #e6c268; border: 1px solid rgba(245,185,62,.35);
+    padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    letter-spacing: .8px; display: none;
+  }
+  .usr { color: var(--dim); font-size: 13px; }
+
+  /* main */
+  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 28px 20px; }
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: 0 24px 70px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  #card { width:100%; max-width: 430px; padding: 30px 28px; }
+  .card-head { text-align:center; margin-bottom: 22px; }
+  .card-head .logo { font-size: 21px; font-weight: 800; letter-spacing:.3px; }
+  .card-head .sub { color: var(--dim); font-size: 13px; margin-top: 6px; line-height:1.5; }
+
+  /* tabs */
+  .tabs {
+    display:flex; gap:4px; padding:4px; border-radius: var(--radius-md);
+    background: rgba(0,0,0,.22); border: 1px solid var(--line-soft); margin-bottom: 18px;
+  }
+  .tab {
+    flex:1; text-align:center; padding: 9px 6px; border-radius: 11px; cursor:pointer;
+    font-size: 13px; color: var(--dim); transition: all .28s ease;
+    border: 1px solid transparent;
+  }
+  .tab:hover { color: var(--txt); }
+  .tab.on {
+    background: var(--acc-soft); color: #dbe3ff; font-weight:600;
+    border-color: rgba(124,147,255,.3);
+  }
+  .panel { display:none; animation: fade .35s ease; }
   .panel.on { display:block; }
-  input, button { background:#10131c; border:1px solid var(--line); color:var(--txt); border-radius:10px;
-    padding:11px 13px; font-size:15px; width:100%; }
-  input:focus { outline:none; border-color:var(--acc); }
-  input::placeholder { color:var(--dim); }
-  .row { display:flex; gap:8px; margin-bottom:10px; }
-  button { cursor:pointer; background:var(--acc); border-color:var(--acc); font-weight:700; font-size:14px; }
-  button:disabled { opacity:.5; cursor:not-allowed; }
-  button.ghost { background:transparent; border-color:var(--line); }
-  #status, #err { color:var(--dim); font-size:13px; margin-top:12px; text-align:center; min-height:17px; }
-  #err { color:#ff6b6b; }
-  #devList { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-  .dev { display:flex; align-items:center; gap:10px; background:#10131c; border:1px solid var(--line);
-    border-radius:10px; padding:10px 12px; cursor:pointer; }
-  .dev:hover { border-color:var(--acc); }
-  .dev .dot2 { width:8px; height:8px; border-radius:50%; background:#666; flex:none; }
-  .dev .dot2.on { background:#2fd06a; }
+  @keyframes fade { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none;} }
+
+  /* form */
+  .field { margin-bottom: 12px; }
+  input {
+    width:100%; padding: 12px 14px; font-size: 15px; color: var(--txt);
+    background: rgba(0,0,0,.25);
+    border: 1px solid var(--line-soft); border-radius: var(--radius-sm);
+    outline: none; transition: border-color .25s ease, box-shadow .25s ease;
+  }
+  input::placeholder { color: var(--dim); }
+  input:focus { border-color: rgba(124,147,255,.55); box-shadow: 0 0 0 3px rgba(124,147,255,.12); }
+  .row { display:flex; gap:8px; }
+  .row input { flex:1; }
+  button {
+    cursor:pointer; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #fff;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(145deg, rgba(124,147,255,.9), rgba(99,116,235,.9));
+    border: 1px solid rgba(124,147,255,.5);
+    transition: all .25s ease; width: 100%;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(124,147,255,.28); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+  button.ghost {
+    width: auto; background: transparent; border-color: var(--line);
+    color: var(--dim); font-weight:600; padding: 12px 14px;
+  }
+  button.ghost:hover { color: var(--txt); border-color: rgba(124,147,255,.4); box-shadow:none; }
+  .note { font-size:12px; color: var(--dim); text-align:center; margin-top: 14px; line-height:1.6; }
+
+  /* status */
+  #status { color: var(--dim); font-size: 13px; margin-top: 16px; text-align:center; min-height: 18px; }
+  #err { color: #ff8f8f; font-size: 13px; margin-top: 6px; text-align:center; min-height: 18px; }
+
+  /* device list */
+  #devList { display:flex; flex-direction:column; gap:10px; margin-top: 16px; }
+  .dev {
+    display:flex; align-items:center; gap:12px; padding: 13px 14px;
+    background: rgba(0,0,0,.22);
+    border: 1px solid var(--line-soft); border-radius: var(--radius-md);
+    cursor:pointer; transition: all .28s ease;
+  }
+  .dev:hover { transform: translateY(-2px); border-color: rgba(124,147,255,.45); background: rgba(0,0,0,.3); }
+  .dev .dot2 { width:9px; height:9px; border-radius:50%; background:#4b5264; flex:none; transition:.3s; }
+  .dev .dot2.on { background: var(--ok); box-shadow: 0 0 8px rgba(63,207,126,.5); }
   .dev .info { flex:1; min-width:0; }
   .dev .info b { font-size:14px; display:block; }
-  .dev .info span { font-size:12px; color:var(--dim); }
-  .dev .tag { font-size:10px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--dim); }
-  .dev .tag.phone { color:var(--gold); border-color:#6b4f14; }
-  .dev .tag.prem { color:var(--gold); border-color:#6b4f14; }
-  #stage { width:100%; max-width:1080px; position:relative; background:#000; border-radius:10px; overflow:hidden;
-    border:1px solid var(--line); aspect-ratio:16/9; display:none; margin-top:16px; }
+  .dev .info span { font-size:12px; color: var(--dim); }
+  .dev .tag {
+    font-size:10px; font-weight:700; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--dim); letter-spacing:.4px;
+  }
+  .dev .tag.phone { color:#e6c268; border-color: rgba(245,185,62,.4); background: rgba(245,185,62,.06); }
+  .dev .tag.pc { color:#b7c3ff; border-color: rgba(124,147,255,.35); background: rgba(124,147,255,.06); }
+  .empty { font-size:13px; color: var(--dim); text-align:center; padding: 12px; }
+
+  /* video */
+  #stage {
+    width:100%; max-width: 1080px; position:relative; overflow:hidden;
+    border-radius: var(--radius-lg); aspect-ratio: 16/9; display:none; margin-top: 22px;
+    border: 1px solid var(--line); background:#000;
+    box-shadow: 0 24px 70px rgba(0,0,0,.45);
+  }
   video { width:100%; height:100%; object-fit:contain; display:block; }
-  #hint { position:absolute; left:10px; bottom:10px; color:#fff; background:rgba(0,0,0,.55);
-    padding:4px 10px; border-radius:6px; font-size:12px; }
+  #hint {
+    position:absolute; left:12px; bottom:12px; color:#e6e9f2;
+    background: rgba(8,10,17,.55); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.08);
+    padding: 6px 12px; border-radius: 999px; font-size: 12px;
+  }
 </style>
 </head>
 <body>
 <header>
-  <b>FrameCast</b>
+  <div class="brand"><span class="brand-mark">F</span> FrameCast</div>
   <span class="dot" id="dot"></span>
-  <span id="hdrState" style="color:var(--dim);font-size:13px">belum terhubung</span>
+  <span id="hdrState">belum terhubung</span>
+  <span class="spacer"></span>
   <span class="usr" id="usr"></span>
   <span class="badge" id="badge">PREMIUM</span>
 </header>
 <main>
-  <div id="card">
-    <div class="logo">🖥️ FrameCast</div>
-    <div class="sub">Remote PC gratis (ID+PIN) · Remote HP premium (akun sama)</div>
+  <div id="card" class="glass">
+    <div class="card-head">
+      <div class="logo">FrameCast</div>
+      <div class="sub">Remote PC gratis (ID+PIN) · Remote HP premium (akun sama)</div>
+    </div>
     <div class="tabs">
       <div class="tab on" id="tabAcc" onclick="showTab('acc')">Akun</div>
       <div class="tab" id="tabPin" onclick="showTab('pin')">Cepat (ID+PIN)</div>
     </div>
 
-    <!-- PANEL AKUN -->
     <div class="panel on" id="panel-acc">
-      <div class="row">
-        <input id="email" placeholder="Email" type="email" autocomplete="username">
-      </div>
+      <div class="field"><input id="email" placeholder="Email" type="email" autocomplete="username"></div>
       <div class="row">
         <input id="pass" placeholder="Password" type="password" autocomplete="current-password">
-        <button class="ghost" id="btnReg" style="width:90px" onclick="register()">Daftar</button>
+        <button class="ghost" id="btnReg" onclick="register()">Daftar</button>
       </div>
       <button id="btnLogin" onclick="login()">Masuk</button>
       <div id="devList"></div>
-      <div style="font-size:12px;color:var(--dim);margin-top:10px;text-align:center">
-        Login akun yang SAMA dengan device tujuan · HP = premium, PC = gratis
-      </div>
+      <div class="note">Login dengan akun yang SAMA dengan device tujuan.<br>HP = premium, PC = gratis.</div>
     </div>
 
-    <!-- PANEL PIN -->
     <div class="panel" id="panel-pin">
-      <div class="row"><input id="id" placeholder="ID host (9 digit)" inputmode="numeric" autocomplete="off" maxlength="9"></div>
-      <div class="row"><input id="pin" placeholder="PIN (bebas)" autocomplete="off"></div>
+      <div class="field"><input id="id" placeholder="ID host (9 digit)" inputmode="numeric" autocomplete="off" maxlength="9"></div>
+      <div class="field"><input id="pin" placeholder="PIN (bebas)" autocomplete="off"></div>
       <button id="btnConnect" onclick="quickConnect()">Connect</button>
-      <div style="font-size:12px;color:var(--dim);margin-top:10px;text-align:center">
-        Remote PC/desktop = GRATIS (ID+PIN)
-      </div>
+      <div class="note">Remote PC/desktop = GRATIS (ID + PIN)</div>
     </div>
 
     <div id="status"></div>
     <div id="err"></div>
   </div>
 
-  <div id="stage">
+  <div id="stage" class="glass">
     <video id="video" autoplay playsinline muted></video>
     <div id="hint">klik/gambar = mouse · scroll = roda · keyboard = ketik</div>
   </div>

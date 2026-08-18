@@ -132,10 +132,10 @@ async def main():
             reason = reply.get("reason")
             msg = reply.get("message", "")
             if reason == "premium_required":
-                print(f"[client] ❌ {msg or 'Remote HP butuh akun PREMIUM'} "
+                print(f"[client] DITOLAK: {msg or 'Remote HP butuh akun PREMIUM'} "
                       f"(upgrade akun untuk remote HP)")
             elif reason == "not_yours":
-                print(f"[client] ❌ device ini bukan milik akun kamu")
+                print(f"[client] DITOLAK: device ini bukan milik akun kamu")
             else:
                 print(f"[client] GAGAL join: {reason} {msg}")
             return 1

@@ -67,7 +67,7 @@ async function login() {
 }
 
 function afterLogin(r) {
-  usrEl.textContent = r.email + (r.plan === "premium" ? " ★PREMIUM" : "");
+  usrEl.textContent = r.email + (r.plan === "premium" ? " · PREMIUM" : "");
   badge.style.display = r.plan === "premium" ? "inline-block" : "none";
   status("masuk sebagai " + r.email, true);
   renderDevices(r.devices || []);
@@ -77,8 +77,7 @@ function renderDevices(devices) {
   const box = $("devList");
   box.innerHTML = "";
   if (!devices.length) {
-    box.innerHTML = '<div style="font-size:13px;color:var(--dim);text-align:center;padding:8px">' +
-      'Belum ada device. Jalankan host dengan login akun yang sama.</div>';
+    box.innerHTML = '<div class="empty">Belum ada device. Jalankan host dengan login akun yang sama.</div>';
     return;
   }
   devices.forEach((d) => {
@@ -88,8 +87,8 @@ function renderDevices(devices) {
     el.innerHTML =
       `<span class="dot2 ${d.online ? "on" : ""}"></span>` +
       `<span class="info"><b>${escapeHtml(d.name || d.model || d.host_id)}</b>` +
-      `<span>${isPhone ? "📱 HP · " : "🖥️ PC · "}${escapeHtml(d.model || "")} · ${d.online ? "online" : "offline"}</span></span>` +
-      `<span class="tag ${isPhone ? "phone" : ""}">${isPhone ? "PREMIUM" : "gratis"}</span>`;
+      `<span>${isPhone ? "HP" : "PC"} · ${escapeHtml(d.model || "")} · ${d.online ? "online" : "offline"}</span></span>` +
+      `<span class="tag ${isPhone ? "phone" : "pc"}">${isPhone ? "PREMIUM" : "gratis"}</span>`;
     el.onclick = () => connectHost(d);
     box.appendChild(el);
   });
@@ -142,7 +141,7 @@ function setupPeer() {
   pc.ontrack = (ev) => {
     video.srcObject = new MediaStream([ev.track]);
     $("stage").style.display = "block";
-    status("terhubung — video P2P", true);
+    status("terhubung - video P2P", true);
   };
   pc.ondatachannel = (ev) => { dc = ev.channel; };
   pc.onicecandidate = (ev) => {
@@ -155,7 +154,7 @@ function setupPeer() {
   pc.onconnectionstatechange = () => {
     status(`koneksi P2P: ${pc.connectionState}`, pc.connectionState === "connected");
     if (pc.connectionState === "failed")
-      error(hostPlan === "premium" ? "P2P gagal — coba lagi (TURN akan dipakai)" : "P2P gagal di jaringan ini");
+      error(hostPlan === "premium" ? "P2P gagal - coba lagi (TURN akan dipakai)" : "P2P gagal di jaringan ini");
   };
 }
 
@@ -176,8 +175,8 @@ function openSignaling(hostId, joinMsg, onJoin) {
     } else if (msg.type === "join_fail") {
       const r = msg.reason;
       if (r === "premium_required")
-        error("❌ Remote HP butuh akun PREMIUM — upgrade akun untuk connect");
-      else if (r === "not_yours") error("❌ Device ini bukan milik akun kamu");
+        error("DITOLAK: remote HP butuh akun PREMIUM - upgrade akun untuk connect");
+      else if (r === "not_yours") error("DITOLAK: device ini bukan milik akun kamu");
       else if (r === "offline") error("Host offline");
       else error(r === "pin_salah" ? "PIN salah" : "Gagal: " + r);
       cleanup();
@@ -213,7 +212,7 @@ function connectHost(dev) {
   status(`connect ke ${dev.name || dev.model}...`);
   setupPeer();
   openSignaling(dev.host_id, { type: "client_join", host_id: dev.host_id, token }, (msg) => {
-    status(`terhubung → ${msg.host.name} [${msg.host.type}]`, true);
+    status(`terhubung ke ${msg.host.name} [${msg.host.type}]`, true);
     makeOffer();
   });
 }
@@ -228,7 +227,7 @@ function quickConnect() {
   status("menghubungi signaling...");
   setupPeer();
   openSignaling(hostId, { type: "client_join", host_id: hostId, pin }, (msg) => {
-    status(`terhubung → ${msg.host.name}`, true);
+    status(`terhubung ke ${msg.host.name}`, true);
     makeOffer();
   });
 }

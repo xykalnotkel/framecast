@@ -129,7 +129,7 @@ class MainActivity : Activity() {
             val d = devs.getJSONObject(i)
             val isPhone = d.optString("type") == "phone"
             val row = TextView(this).apply {
-                text = "${if (isPhone) "📱" else "🖥️"} ${d.optString("name", d.optString("host_id"))}\n" +
+                text = "${if (isPhone) "HP" else "PC"} · ${d.optString("name", d.optString("host_id"))}\n" +
                     "   ${d.optString("model")} · ${if (d.optBoolean("online")) "ONLINE" else "offline"}" +
                     (if (isPhone) " · [PREMIUM]" else " · [gratis]")
                 textSize = 14f
@@ -202,7 +202,7 @@ class MainActivity : Activity() {
         when (msg.optString("type")) {
             "join_ok" -> {
                 val h = msg.optJSONObject("host")
-                tvStatus.text = "terhubung → ${h?.optString("name")}"
+                tvStatus.text = "terhubung ke ${h?.optString("name")}"
                 val session = WebRtcSession(applicationContext, renderer, onSignal = { json ->
                     ws?.send(JSONObject().put("type", "signal").put("to", "host").put("payload", json).toString())
                 })
@@ -214,8 +214,8 @@ class MainActivity : Activity() {
             "join_fail" -> {
                 val reason = msg.optString("reason")
                 tvStatus.text = when (reason) {
-                    "premium_required" -> "❌ Remote HP butuh akun PREMIUM"
-                    "not_yours" -> "❌ Bukan device akun kamu"
+                    "premium_required" -> "DITOLAK: remote HP butuh akun PREMIUM"
+                    "not_yours" -> "DITOLAK: bukan device akun kamu"
                     "offline" -> "Host offline"
                     else -> "Gagal: $reason"
                 }

@@ -1,145 +1,134 @@
-# FrameCast — Remote Desktop dari Nol (POC)
+# FrameCast — Remote Desktop dari Nol
 
 [![Build Host (Windows .exe)](https://github.com/xykalnotkel/framecast/actions/workflows/build-host.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/build-host.yml)
 [![Build Android (APK)](https://github.com/xykalnotkel/framecast/actions/workflows/build-android.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/build-android.yml)
 [![Deploy Cloudflare Worker](https://github.com/xykalnotkel/framecast/actions/workflows/deploy-cloudflare.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/deploy-cloudflare.yml)
 [![Web client (Pages)](https://github.com/xykalnotkel/framecast/actions/workflows/pages.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/pages.yml)
 
-Remote desktop low-latency yang dibangun **dari nol**: tangkap layar → encode →
-kirim → decode → tampil, plus input mouse/keyboard balik ke host. Semua kode di
-repo ini ditulis sendiri, tanpa library remote-desktop jadi (WebSocket dipakai
-cuma sebagai transport POC — nanti diganti UDP/WebRTC, lihat roadmap).
+Remote desktop yang dibangun dari nol: tangkap layar, encode, kirim, decode,
+tampil, plus input mouse/keyboard balik ke host. Semua kode ditulis sendiri,
+tanpa library remote-desktop jadi.
 
-> ⚠️ **Harapan yang realistis**: POC ini jalan 30–60 fps (720p) — itu wajar,
-> karena encode JPEG di CPU. Jalur ke **120+ fps** ada di
-> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (hardware encoder, DXGI,
-> UDP/WebRTC, GPU decode). Kode POC ini sengaja diarsitekturkan pluggable
-> biar tiap tahap bisa di-upgrade satu-satu tanpa rombak total.
+> **Catatan realistis:** POC (WebSocket + JPEG) ini jalan 30–60 fps (720p)
+> karena encode di CPU. Jalur ke 120+ fps ada di
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (DXGI + NVENC).
 
-## 🔥 Yang baru: sistem ONLINE (v2) — ID + PIN, gratis, dari mana saja
-
-Folder **`online/`** berisi versi AnyDesk-style + sistem akun. **Model bisnis:**
+## Model bisnis
 
 | Remote | Biaya | Cara masuk |
 |---|---|---|
-| **PC / desktop** | GRATIS | ID + PIN (tanpa akun) |
-| **HP (Android)** | **PREMIUM** | login akun SAMA di HP & device lain, tanpa ID+PIN — deteksi model HP, gak bisa connect kalau akun gak premium |
+| PC / desktop | GRATIS | ID + PIN (tanpa akun) |
+| HP (Android) | PREMIUM | login akun SAMA di HP & device lain, tanpa ID+PIN. Sistem deteksi model HP. Gak bisa connect kalau akun gak premium |
 
-Koneksi **WebRTC P2P** (video & input langsung host↔client). Backend
-**Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit)** — auth
-akun (PBKDF2), registri device, gating premium di server. Sudah teruji
-end-to-end di worker produksi (free→HP ditolak, premium→HP connect).
+Backend: Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit) —
+auth akun (PBKDF2), registri device, gating premium di server. Teruji
+end-to-end di worker produksi: akun free ditolak akses ke HP, akun premium
+connect.
 
 **Download siap pakai (GitHub Release v0.3.0):**
-- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastHost.exe
-- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastClient-debug.apk
-- 🌐 **Client Web (live):** https://xykalnotkel.github.io/framecast
-- ☁️ **Signaling backend (live):** https://framecast-signal.akuntiktok76y.workers.dev
+- Host Windows (.exe): https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastHost.exe
+- Client Android (APK): https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastClient-debug.apk
+- Client Web (live): https://xykalnotkel.github.io/framecast
+- Signaling backend (live): https://framecast-signal.akuntiktok76y.workers.dev
 
-```
-online/
-├── host_rtc.py           # HOST: ID+PIN -> capture -> WebRTC -> terima input
-├── client_rtc.py         # client CLI (tes & benchmark)
-├── signaling_local.py    # signaling server lokal (dev)
-├── msgproto.py           # protokol pesan (ID+PIN, relay, input)
-├── backend/              # Cloudflare Worker (produksi gratis)
-├── web/                  # client browser (tanpa library)
-└── android/              # client Android Kotlin
-```
+## Cara Uji (test dulu sebelum lanjut)
 
-**Panduan lengkap (deploy, TURN/CGNAT, matriks backend gratis, roadmap):
-[`docs/ONLINE.md`](docs/ONLINE.md)**
+Semua alur di bawah sudah terverifikasi di produksi, jadi tinggal kamu
+ulangi di perangkat sendiri.
 
-Quickstart online (lokal, buat nyoba):
+### A. Remote PC (gratis) — web browser
+1. Download `FrameCastHost.exe`, jalankan di PC yang mau di-remote.
+2. Catat **ID 9 digit** dan **PIN 6 digit** yang muncul di jendela host.
+3. Di HP/PC lain, buka `https://xykalnotkel.github.io/framecast`.
+4. Pilih tab **Cepat (ID+PIN)**, masukkan ID + PIN, klik Connect.
+5. Layar PC muncul; coba gerakkan mouse, scroll, dan ketik.
+
+### B. Sistem akun + remote HP (premium)
+1. Di web client, tab **Akun** → **Daftar** (email + password).
+2. Login → device HP-mu otomatis terdaftar (model terdeteksi, mis.
+   "Samsung SM-A525F").
+3. **Uji gating:** coba connect ke HP dari akun yang masih free →
+   muncul "Remote HP butuh akun PREMIUM" (ditolak server).
+4. **Upgrade akun ke premium (mode test):**
+   ```bash
+   curl -X POST https://framecast-signal.akuntiktok76y.workers.dev/api/upgrade \
+     -H "Content-Type: application/json" \
+     -d '{"token":"<TOKEN_AKUN>","dev_key":"<PREMIUM_DEV_KEY>"}'
+   ```
+   (Token bisa diambil dari login; dev key sudah disimpan sebagai secret.
+   Nanti diganti payment beneran.)
+5. Connect ke HP lagi → sekarang masuk, video tampil.
+
+### C. Host HP (Android)
+1. Install `app-debug.apk`, buka, login akun.
+2. Klik **Jadikan HP Host** → izinkan tangkap layar.
+3. Dari device lain, login akun yang sama → HP muncul di daftar device →
+   klik (akun harus premium).
+
+> **Catatan:** alur host-HP (MediaProjection) sudah lolos compile di CI,
+> tapi belum dites di HP fisik — butuh perangkat nyata untuk uji stream.
+
+### D. Uji cepat (Python, tanpa UI)
 ```bash
-cd framecast
-python online/signaling_local.py &          # terminal 1: signaling
-python online/host_rtc.py --capture synthetic --pin 123456 &   # terminal 2: host
-python online/client_rtc.py --host-id <ID> --pin 123456        # terminal 3: client
+pip install -r requirements.txt
+python online/signaling_local.py &                      # terminal 1
+python online/host_rtc.py --capture synthetic --pin 123456 &   # terminal 2
+python online/client_rtc.py --host-id <ID> --pin 123456        # terminal 3
 ```
-(Untuk layar asli, hilangkan `--capture synthetic`. Produksi: `wrangler deploy`
-di `online/backend`, ganti `SIGNALING_URL` di web & Android, bungkus host
-dengan PyInstaller — semua langkahnya di `docs/ONLINE.md`.)
 
 ## Struktur
 
 ```
 framecast/
-├── server.py        # streamer (host): capture → encode → broadcast + inject input
-├── client.py        # viewer (penonton): decode → tampil (pygame) + kirim input
-├── capture.py       # backend penangkap layar: mss (asli) & synthetic (tes)
+├── server.py        # streamer (host) POC: capture -> encode -> broadcast
+├── client.py        # viewer POC (pygame)
+├── capture.py       # backend penangkap layar: mss & synthetic
 ├── encoder.py       # encoder pluggable: JPEG sekarang, NVENC nanti
-├── protocol.py      # format biner frame (header 23 byte + payload)
-├── input.py         # injeksi input ke host: SendInput Windows (ctypes)
-└── tests/
-    └── headless_test.py  # tes end-to-end tanpa layar (jalan di CI/headless)
+├── protocol.py      # format biner frame
+├── input.py         # injeksi input ke host (SendInput Windows)
+├── docs/            # ARCHITECTURE.md (120fps) & ONLINE.md (sistem online)
+└── online/          # sistem online v2-v3
+    ├── host_rtc.py           # host: ID+PIN / akun, WebRTC, DXGI/NVENC
+    ├── client_rtc.py         # client CLI (tes & benchmark)
+    ├── signaling_local.py    # signaling lokal (dev)
+    ├── msgproto.py           # protokol pesan
+    ├── backend/              # Cloudflare Worker (auth + gating + relay)
+    ├── web/                  # client browser (glassmorphism, tanpa library)
+    └── android/              # client Android Kotlin (+ host HP)
 ```
 
-## Quickstart
-
-```bash
-# 1. install (Python 3.10+)
-pip install -r requirements.txt
-
-# 2. di mesin HOST (yang layarnya mau di-share) — jalanin dari folder framecast
-python server.py --fps 120 --quality 75
-
-# 3. di mesin CLIENT (penonton) — IP host sesuai jaringan kamu
-python client.py --host 192.168.1.10 --port 9000
-```
-
-Catatan: buka port `9000` di firewall host. WebSocket bisa lewat proxy HTTP —
-buat akses internet, paling gampang pasang WireGuard/Tailscale dulu.
-
-## Opsi server
-
-| Flag | Default | Fungsi |
-|---|---|---|
-| `--host` | `0.0.0.0` | bind address |
-| `--port` | `9000` | port WebSocket |
-| `--fps` | `60` | target fps capture (coba `120` di mesin kencang) |
-| `--quality` | `80` | kualitas JPEG 1–100 (makin tinggi makin boros bandwidth) |
-| `--capture` | `mss` | `mss` = layar asli, `synthetic` = frame tes |
-| `--size` | — | ukuran frame synthetic, mis. `1280x720` |
-| `--monitor` | `1` | nomor monitor (mss) |
-| `--region` | — | tangkap sebagian layar: `left,top,width,height` (mss) |
-
-## Opsi client
+## Opsi host
 
 | Flag | Fungsi |
 |---|---|
-| `--host` / `--port` | alamat server |
-| `--fullscreen` | fullscreen (scaling GPU via pygame) |
-| `--no-stats` | sembunyikan overlay fps/drop |
+| `--device-type pc\|phone` | pc = gratis ID+PIN, phone = premium akun |
+| `--plan free\|premium` | plan host (premium = TURN/HP diizinkan) |
+| `--account-email` / `--account-password` | login akun (wajib buat host phone) |
+| `--capture mss\|dxgi\|synthetic` | dxgi = DXGI Desktop Duplication (Windows, 120fps) |
+| `--codec h264` | preferensi H.264 (bitrate hemat) |
+| `--fps 120` | target fps |
 
-## Tes headless (tanpa layar)
+## Backend (Cloudflare, gratis)
 
-```bash
-python tests/headless_test.py 60 1280x720   # target 60fps @ 720p
-python tests/headless_test.py 120 640x360   # target 120fps @ 360p
-```
+- `wrangler deploy` di `online/backend` → worker live.
+- Endpoint: `/ws?host=<ID>` (signaling), `/api/register`, `/api/login`,
+  `/api/devices`, `/api/upgrade`, `/api/host`, `/api/turn`.
+- Secret worker: `PREMIUM_DEV_KEY` (upgrade test), opsional
+  `TURN_KEY_ID`/`TURN_KEY_API_TOKEN` (TURN Cloudflare — butuh billing,
+  jadi opsional; premium tidak bergantung TURN).
 
-Hasil terakhir yang terverifikasi (sandbox):
+## CI (GitHub Actions)
 
-| Tes | Hasil |
+| Workflow | Hasil |
 |---|---|
-| 1280×720 @ 60 | 55.4 fps terkirim, decode 5.0 ms/frame |
-| 640×360 @ 120 | 117.4 fps, 0 frame drop, decode 1.3 ms/frame |
+| `build-host.yml` | FrameCastHost.exe (Windows) |
+| `build-android.yml` | FrameCastClient-debug.apk |
+| `deploy-cloudflare.yml` | deploy worker + set secret |
+| `pages.yml` | deploy web client |
 
-## Cara kerja singkat
+Semua berjalan otomatis tiap push ke `main`; artifact di-download dari tab
+Actions atau Release.
 
-1. **Capture thread** di server ambil frame terus-menerus, cuma nyimpen frame
-   **terbaru** — yang telat di-drop (data basi lebih buruk daripada frame hilang).
-2. **Pump asyncio** encode frame terbaru (di thread, biar event loop responsif),
-   broadcast ke semua client. Client lambat dilewati, bukan nahan yang lain.
-3. **Protocol biner** (23-byte header + payload) di atas WebSocket; pesan kontrol
-   (input) lewat jalur teks terpisah biar input nggak kehalang frame besar.
-4. **Client** decode JPEG → blit → flip tanpa vsync, plus kirim input lokal
-   (koordinat dinormalisasi 0..1) balik ke host.
+## Lisensi
 
-## Naik ke 120+ fps? Baca ini dulu
-
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — blueprint lengkap: DXGI
-Desktop Duplication, NVENC/AMF/QuickSync, UDP/RTP & WebRTC, GPU decode,
-flip-model present, RawInput, budget latency, dan roadmap v0→v5 bertahap.
-Singkatnya: **ganti encoder ke NVENC dulu** (v1), itu yang membuka pintu 120fps.
+MIT — lihat [LICENSE](LICENSE).
