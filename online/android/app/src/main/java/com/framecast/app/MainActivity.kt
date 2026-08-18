@@ -137,15 +137,16 @@ class MainActivity : Activity() {
     }
 
     private fun startSession(tvStatus: android.widget.TextView) {
-        rtc = WebRtcSession(applicationContext, renderer, turnIce, onSignal = { json ->
+        val session = WebRtcSession(applicationContext, renderer, onSignal = { json ->
             ws?.send(JSONObject().put("type", "signal").put("to", "host").put("payload", json).toString())
-        }).also { session ->
-            input = InputSender(session)
-            renderer.setOnTouchListener { _, ev -> input?.onTouch(renderer, ev); true }
-            CoroutineScope(Dispatchers.Main).launch {
-                session.start()
-                tvStatus.text = "offer dikirim, tunggu host..."
-            }
+        })
+        session.extraIce = turnIce // TURN (kalau host premium)
+        rtc = session
+        input = InputSender(session)
+        renderer.setOnTouchListener { _, ev -> input?.onTouch(renderer, ev); true }
+        CoroutineScope(Dispatchers.Main).launch {
+            session.start()
+            tvStatus.text = "offer dikirim, tunggu host..."
         }
     }
 

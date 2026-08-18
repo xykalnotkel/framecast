@@ -28,9 +28,10 @@ import java.util.concurrent.Executors
 class WebRtcSession(
     private val appContext: Context,
     private val renderer: SurfaceViewRenderer,
-    extraIce: JSONArray = JSONArray(),
     private val onSignal: (JSONObject) -> Unit,
 ) {
+    /** TURN ICE servers tambahan (host premium) — set SEBELUM start(). */
+    var extraIce: JSONArray = JSONArray()
     private var pc: PeerConnection? = null
     private var dc: DataChannel? = null
     private val executor = Executors.newSingleThreadExecutor()
