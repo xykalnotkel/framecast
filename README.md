@@ -25,9 +25,9 @@ auth akun (PBKDF2), registri device, gating premium di server. Teruji
 end-to-end di worker produksi: akun free ditolak akses ke HP, akun premium
 connect.
 
-**Download siap pakai (GitHub Release v0.3.0):**
-- Host Windows (.exe): https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastHost.exe
-- Client Android (APK): https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastClient-debug.apk
+**Download siap pakai (GitHub Release v0.3.1):**
+- Host Windows (.exe): https://github.com/xykalnotkel/framecast/releases/download/v0.3.1/FrameCastHost.exe
+- Client Android (APK): https://github.com/xykalnotkel/framecast/releases/download/v0.3.1/FrameCastClient-debug.apk
 - Client Web (live): https://xykalnotkel.github.io/framecast
 - Signaling backend (live): https://framecast-signal.akuntiktok76y.workers.dev
 
