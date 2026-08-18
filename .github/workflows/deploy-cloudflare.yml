@@ -1,0 +1,32 @@
+name: Deploy Cloudflare Worker
+
+# Deploy signaling backend ke Cloudflare (gratis).
+# Butuh secret repo: CLOUDFLARE_API_TOKEN (token Workers/DO).
+# Manual dari tab Actions, atau otomatis kalau file backend berubah.
+on:
+  push:
+    branches: [main]
+    paths: ['online/backend/**']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy worker (wrangler)
+        working-directory: online/backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy
+
+      - name: Cek URL worker
+        run: |
+          curl -s "https://framecast-signal.akuntiktok76y.workers.dev/api/host?id=000000000"
+          echo " <- worker respons"

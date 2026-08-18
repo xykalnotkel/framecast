@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Build artifacts (CI)
+*.exe
+*.spec
+
+# Android / Gradle
+online/android/.gradle/
+online/android/local.properties
+online/android/app/build/
+online/android/build/
+*.apk
+*.aab
+.kotlin/
+
+# Node / wrangler
+node_modules/
+.wrangler/
+online/backend/.wrangler/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Sensitif — jangan pernah commit
+.env
+*.pem

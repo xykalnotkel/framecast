@@ -1,0 +1,34 @@
+name: Deploy Web client ke GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['online/web/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload folder web sebagai Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: online/web
+
+      - name: Deploy ke GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
