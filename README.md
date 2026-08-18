@@ -1,5 +1,10 @@
 # FrameCast — Remote Desktop dari Nol (POC)
 
+[![Build Host (Windows .exe)](https://github.com/xykalnotkel/framecast/actions/workflows/build-host.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/build-host.yml)
+[![Build Android (APK)](https://github.com/xykalnotkel/framecast/actions/workflows/build-android.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/build-android.yml)
+[![Deploy Cloudflare Worker](https://github.com/xykalnotkel/framecast/actions/workflows/deploy-cloudflare.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/deploy-cloudflare.yml)
+[![Web client (Pages)](https://github.com/xykalnotkel/framecast/actions/workflows/pages.yml/badge.svg)](https://github.com/xykalnotkel/framecast/actions/workflows/pages.yml)
+
 Remote desktop low-latency yang dibangun **dari nol**: tangkap layar → encode →
 kirim → decode → tampil, plus input mouse/keyboard balik ke host. Semua kode di
 repo ini ditulis sendiri, tanpa library remote-desktop jadi (WebSocket dipakai
@@ -17,7 +22,13 @@ Folder **`online/`** berisi versi AnyDesk-style: host PC dapat **ID + PIN**,
 client connect dari **Web / Android (Kotlin) / Windows**, koneksi **WebRTC P2P**
 (video & input langsung host↔client, backend cuma relay SDP). Backend pakai
 **Cloudflare Workers + Durable Objects (gratis, tanpa kartu kredit)** — kode
-lengkap + sudah teruji end-to-end di sandbox (P2P video ±52 fps + input 6/6).
+lengkap + sudah teruji end-to-end (termasuk lewat worker sungguhan di internet).
+
+**Download siap pakai (GitHub Release v0.1.0):**
+- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.1.0/FrameCastHost.exe
+- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.1.0/FrameCastClient-debug.apk
+- 🌐 **Client Web (live):** https://xykalnotkel.github.io/framecast
+- ☁️ **Signaling backend (live):** https://framecast-signal.akuntiktok76y.workers.dev
 
 ```
 online/
