@@ -28,6 +28,8 @@ class ScreenCapturer(
     private val dpi: Int,
 ) : VideoCapturer {
 
+    override fun isScreencast(): Boolean = true
+
     private var observer: CapturerObserver? = null
     private var imageReader: ImageReader? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -88,9 +90,11 @@ class ScreenCapturer(
                     }
                 }
             }
-            observer?.onByteBufferFrameCaptured(
-                ByteBuffer.wrap(nv21), w, h, 0, System.nanoTime()
-            )
+            // bungkus NV21 -> VideoFrame -> observer (SDK M125 cuma onFrameCaptured)
+            val buffer = org.webrtc.NV21Buffer(nv21, w, h, null)
+            val frame = org.webrtc.VideoFrame(buffer, 0, System.nanoTime())
+            observer?.onFrameCaptured(frame)
+            frame.release()
         } catch (e: Exception) {
             android.util.Log.e("FrameCast", "capture frame gagal", e)
         } finally {
@@ -98,6 +102,7 @@ class ScreenCapturer(
         }
     }
 
+    @Throws(InterruptedException::class)
     override fun stopCapture() {
         virtualDisplay?.release()
         imageReader?.close()

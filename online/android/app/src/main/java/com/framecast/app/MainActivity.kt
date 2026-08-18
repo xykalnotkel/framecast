@@ -17,6 +17,7 @@ import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -202,9 +203,10 @@ class MainActivity : Activity() {
             "join_ok" -> {
                 val h = msg.optJSONObject("host")
                 tvStatus.text = "terhubung → ${h?.optString("name")}"
-                val session = WebRtcSession(applicationContext, renderer, turnIce, onSignal = { json ->
+                val session = WebRtcSession(applicationContext, renderer, onSignal = { json ->
                     ws?.send(JSONObject().put("type", "signal").put("to", "host").put("payload", json).toString())
                 })
+                session.extraIce = turnIce
                 rtc = session
                 input = InputSender(session)
                 session.start()

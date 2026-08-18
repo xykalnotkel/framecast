@@ -117,7 +117,7 @@ class HostSession(
         onStatus("client masuk — mulai stream layar...")
         val f = factory(appContext)
         videoSource = f.createVideoSource(true /* isScreencast */)
-        val videoTrack: VideoTrack = videoSource!!.createVideoTrack("screen0")
+        val videoTrack: VideoTrack = f.createVideoTrack("screen0", videoSource!!)
 
         val rtcConfig = PeerConnection.RTCConfiguration(listOf(
             org.webrtc.PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer(),
@@ -162,13 +162,14 @@ class HostSession(
             }
         })
 
-        // mulai tangkap layar
+        // mulai tangkap layar (SDK M125: initialize + startCapture, tanpa setVideoCapturer)
         val w = appContext.resources.displayMetrics.widthPixels
         val h = appContext.resources.displayMetrics.heightPixels
         val dpi = appContext.resources.displayMetrics.densityDpi
         val capturer = ScreenCapturer(mediaProjection, w, h, dpi)
         videoSource!!.adaptOutputFormat(w, h, 30)
-        videoSource!!.setVideoCapturer(capturer)
+        capturer.initialize(null, appContext, videoSource!!.getCapturerObserver())
+        capturer.startCapture(w, h, 30)
     }
 
     private fun handleOffer(sdp: String) {
