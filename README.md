@@ -30,9 +30,9 @@ Koneksi **WebRTC P2P** (video & input langsung host↔client). Backend
 akun (PBKDF2), registri device, gating premium di server. Sudah teruji
 end-to-end di worker produksi (free→HP ditolak, premium→HP connect).
 
-**Download siap pakai (GitHub Release v0.2.0):**
-- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.2.0/FrameCastHost.exe
-- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.2.0/FrameCastClient-debug.apk
+**Download siap pakai (GitHub Release v0.3.0):**
+- 🖥 **Host Windows (.exe):** https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastHost.exe
+- 📱 **Client Android (APK):** https://github.com/xykalnotkel/framecast/releases/download/v0.3.0/FrameCastClient-debug.apk
 - 🌐 **Client Web (live):** https://xykalnotkel.github.io/framecast
 - ☁️ **Signaling backend (live):** https://framecast-signal.akuntiktok76y.workers.dev
 
