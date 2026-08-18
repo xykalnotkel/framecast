@@ -220,5 +220,24 @@ paling akhir sebagai fitur push.
 
 ---
 
+
+---
+
+## 11. Repo & CI (GitHub Actions)
+
+Repo: **https://github.com/xykalnotkel/framecast** — semua kode & workflow.
+
+| Workflow | Nganggurin | Hasil (artifact) |
+|---|---|---|
+| `build-host.yml` | Windows runner + PyInstaller | `FrameCastHost-windows` (.exe, ~20 MB) |
+| `build-android.yml` | Ubuntu + JDK 17 + Android SDK | `FrameCastClient-debug.apk` |
+| `deploy-cloudflare.yml` | wrangler + `CLOUDFLARE_API_TOKEN` secret | worker live `framecast-signal.akuntiktok76y.workers.dev` |
+| `pages.yml` | GitHub Pages | web client live `xykalnotkel.github.io/framecast` |
+
+- Artifact bisa di-download dari tab **Actions** → pilih run → **Artifacts**.
+- Secret repo (`Settings → Secrets and variables → Actions`): `CLOUDFLARE_API_TOKEN`.
+- Semua workflow juga bisa dijalankan manual dari tab Actions (tombol
+  **Run workflow**) — tanpa harus push.
+
 *Terakhir diperbarui: 2026-08-18. Angka free tier = kondisi saat dokumen
 ditulis; cek halaman pricing resmi sebelum produksi.*
