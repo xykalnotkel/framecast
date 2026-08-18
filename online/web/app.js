@@ -2,31 +2,29 @@
  * FrameCast Online — client Web (viewer + input).
  *
  * Tanpa library: pakai RTCPeerConnection native + WebSocket.
- * Ganti SIGNALING_URL ke worker kamu (wss://<nama-worker>.workers.dev/ws).
- *
- * Alur: join pakai ID+PIN -> offer WebRTC -> P2P video dari host ->
- *       kirim input (mouse/keyboard) via DataChannel.
+ * Alur: join pakai ID+PIN -> (kalau host PREMIUM, ambil TURN credential) ->
+ *       offer WebRTC -> P2P video dari host -> kirim input via DataChannel.
  */
 
 // ====== konfigurasi ======
-const SIGNALING_URL = "wss://framecast-signal.akuntiktok76y.workers.dev/ws"; // GANTI
+const SIGNALING_URL = "wss://framecast-signal.akuntiktok76y.workers.dev/ws"; // ganti kalau worker berubah
 const STUN_SERVERS = [
   { urls: "stun:stun.cloudflare.com:3478" },
   { urls: "stun:stun.l.google.com:19302" },
 ];
-// TURN diperlukan kalau NAT/CGNAT nggak lolos P2P (sering di jaringan seluler ID).
-// Testing gratis: https://www.metered.ca/tools/openrelay/  |  Produksi: self-host coturn.
-const TURN_URL = null; // contoh: { urls:"turn:openrelay.metered.ca:80", username:"...", credential:"..." }
 
 // ====== elemen UI ======
 const $ = (id) => document.getElementById(id);
 const btn = $("btn"), idInput = $("id"), pinInput = $("pin");
 const statusEl = $("status"), errEl = $("err"), stage = $("stage"), video = $("video");
+const badge = $("badge");
 
 let ws = null;        // koneksi signaling
 let pc = null;        // RTCPeerConnection
 let dc = null;        // DataChannel input
 let seq = 0;
+let hostPlan = "free";
+let turnIce = [];     // TURN credential (kalau premium)
 
 function status(text, ok) {
   statusEl.textContent = text;
@@ -43,7 +41,6 @@ function sendInput(action, extra = {}) {
 
 function normalize(e) {
   const r = video.getBoundingClientRect();
-  // video object-fit:contain → koordinat relatif ke area video yang terlihat
   return {
     x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
     y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
@@ -51,9 +48,7 @@ function normalize(e) {
 }
 
 video.addEventListener("pointermove", (e) => {
-  if (e.buttons === 1) { // drag = gerak + tombol kiri
-    sendInput("mousemove", normalize(e));
-  }
+  if (e.buttons === 1) sendInput("mousemove", normalize(e));
 });
 video.addEventListener("pointerdown", (e) => {
   sendInput("mousemove", normalize(e));
@@ -83,13 +78,22 @@ window.addEventListener("keyup", (e) => {
 // ====== WebRTC ======
 function iceServers() {
   const list = STUN_SERVERS.slice();
-  if (TURN_URL) list.push(TURN_URL);
+  if (turnIce.length) list.push(...turnIce); // TURN hanya kalau premium
   return list;
+}
+
+async function fetchTurn() {
+  try {
+    const hostId = idInput.value.replace(/\s/g, "");
+    const r = await fetch(`https://framecast-signal.akuntiktok76y.workers.dev/api/turn?host=${hostId}`);
+    const j = await r.json();
+    if (j && Array.isArray(j.iceServers)) turnIce = j.iceServers;
+  } catch {}
 }
 
 function setupPeer() {
   pc = new RTCPeerConnection({ iceServers: iceServers() });
-  pc.addTransceiver("video", { direction: "recvonly" }); // kita terima video dari host
+  pc.addTransceiver("video", { direction: "recvonly" });
 
   pc.ontrack = (ev) => {
     video.srcObject = new MediaStream([ev.track]);
@@ -99,12 +103,7 @@ function setupPeer() {
 
   pc.ondatachannel = (ev) => {
     dc = ev.channel;
-    dc.onmessage = (m) => {
-      try {
-        const j = JSON.parse(m.data);
-        if (j.type === "hello") status(`terhubung ke ${j.name || "host"}`, true);
-      } catch {}
-    };
+    dc.onmessage = () => {};
   };
 
   pc.onicecandidate = (ev) => {
@@ -123,7 +122,11 @@ function setupPeer() {
 
   pc.onconnectionstatechange = () => {
     status(`koneksi P2P: ${pc.connectionState}`, pc.connectionState === "connected");
-    if (pc.connectionState === "failed") error("P2P gagal — butuh TURN di jaringan ini");
+    if (pc.connectionState === "failed") {
+      error(hostPlan === "premium"
+        ? "P2P gagal — coba lagi (TURN relay akan dipakai otomatis)"
+        : "P2P gagal di jaringan ini — butuh PREMIUM (TURN relay)");
+    }
   };
 }
 
@@ -141,10 +144,8 @@ async function connect() {
   errEl.textContent = "";
   const hostId = idInput.value.replace(/\s/g, "");
   const pin = pinInput.value.trim();
-  if (!/^\d{9}$/.test(hostId) || !/^\d{6}$/.test(pin)) {
-    error("ID 9 digit & PIN 6 digit");
-    return;
-  }
+  if (!/^\d{9}$/.test(hostId)) { error("ID harus 9 digit angka"); return; }
+  if (!pin) { error("PIN wajib diisi (bebas)"); return; }
   btn.disabled = true;
   status("menghubungi signaling...");
 
@@ -155,7 +156,13 @@ async function connect() {
   ws.onmessage = async (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.type === "join_ok") {
+      hostPlan = msg.host?.plan || "free";
       status(`join OK → ${msg.host.name} (${msg.host.platform})`, true);
+      if (hostPlan === "premium") {
+        badge.style.display = "inline-block";
+        status(`join OK → ${msg.host.name} [PREMIUM]`, true);
+        await fetchTurn(); // ambil TURN credential sebelum bikin offer
+      }
       setupPeer();
       await makeOffer();
     } else if (msg.type === "join_fail") {
@@ -183,7 +190,7 @@ async function connect() {
     btn.disabled = false;
     if (pc) { pc.close(); pc = null; dc = null; }
   };
-  ws.onerror = () => error("Gagal hubungi signaling — cek SIGNALING_URL & network");
+  ws.onerror = () => error("Gagal hubungi signaling — cek network");
 }
 
 btn.addEventListener("click", connect);

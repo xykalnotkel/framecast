@@ -1,0 +1,6 @@
+# Dependency HOST Windows (opsional — jalur high-perf DXGI+NVENC).
+# Di CI (build-host.yml) hanya diinstall di runner windows.
+# Untuk coba 120+ fps di PC dengan GPU:
+#   pip install -r requirements.txt -r requirements-host.txt
+dxcam>=0.0.5          # capture DXGI Desktop Duplication (Windows only)
+av>=12.0.0            # PyAV — encoder NVENC / AMF / QSV / x264

@@ -5,28 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FrameCast — Remote Desktop Online</title>
 <style>
-  :root { --bg:#0f1117; --card:#171b26; --line:#262c3b; --txt:#e6e9f2; --dim:#8b93a7; --acc:#4f7cff; }
+  :root { --bg:#0f1117; --card:#171b26; --line:#262c3b; --txt:#e6e9f2; --dim:#8b93a7; --acc:#4f7cff; --gold:#f5b93e; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  body { margin:0; min-height:100vh; font-family:system-ui,Segoe UI,Roboto,sans-serif;
+    background:var(--bg); color:var(--txt); display:flex; flex-direction:column; }
   header { padding:14px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
   header b { letter-spacing:.3px; }
   header .dot { width:8px; height:8px; border-radius:50%; background:#666; display:inline-block; }
   header .dot.on { background:#2fd06a; box-shadow:0 0 8px #2fd06a; }
-  main { max-width:1080px; margin:0 auto; padding:16px; }
-  #join { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
-  input, button { background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:8px;
-    padding:10px 12px; font-size:15px; }
-  input { min-width:130px; }
+  header .badge { margin-left:auto; background:linear-gradient(135deg,#3a2d0e,#2a1f06); color:var(--gold);
+    border:1px solid #6b4f14; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
+    display:none; letter-spacing:.5px; }
+  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
+  /* kartu join di tengah */
+  #joinCard { width:100%; max-width:420px; background:var(--card); border:1px solid var(--line);
+    border-radius:16px; padding:28px 24px; box-shadow:0 12px 40px rgba(0,0,0,.4); }
+  #joinCard .logo { text-align:center; font-size:22px; font-weight:800; letter-spacing:.5px; margin-bottom:4px; }
+  #joinCard .sub { text-align:center; color:var(--dim); font-size:13px; margin-bottom:20px; }
+  #join { display:flex; flex-direction:column; gap:10px; }
+  input, button { background:#10131c; border:1px solid var(--line); color:var(--txt); border-radius:10px;
+    padding:12px 14px; font-size:16px; width:100%; }
+  input:focus { outline:none; border-color:var(--acc); }
   input::placeholder { color:var(--dim); }
-  button { cursor:pointer; background:var(--acc); border-color:var(--acc); font-weight:600; }
+  button { cursor:pointer; background:var(--acc); border-color:var(--acc); font-weight:700; font-size:15px; }
   button:disabled { opacity:.5; cursor:not-allowed; }
-  #status { color:var(--dim); font-size:13px; margin:8px 0; min-height:18px; }
-  #stage { position:relative; background:#000; border-radius:10px; overflow:hidden;
-    border:1px solid var(--line); aspect-ratio:16/9; display:none; }
+  #status { color:var(--dim); font-size:13px; margin-top:14px; text-align:center; min-height:18px; }
+  #err { color:#ff6b6b; font-size:13px; margin-top:6px; text-align:center; min-height:18px; }
+  /* area video */
+  #stage { width:100%; max-width:1080px; position:relative; background:#000; border-radius:10px; overflow:hidden;
+    border:1px solid var(--line); aspect-ratio:16/9; display:none; margin-top:16px; }
   video { width:100%; height:100%; object-fit:contain; display:block; }
   #hint { position:absolute; left:10px; bottom:10px; color:#fff; background:rgba(0,0,0,.55);
     padding:4px 10px; border-radius:6px; font-size:12px; }
-  #err { color:#ff6b6b; font-size:14px; margin-top:8px; min-height:18px; }
 </style>
 </head>
 <body>
@@ -34,15 +44,20 @@
   <b>FrameCast</b>
   <span class="dot" id="dot"></span>
   <span id="hdrState" style="color:var(--dim);font-size:13px">belum terhubung</span>
+  <span class="badge" id="badge">PREMIUM</span>
 </header>
 <main>
-  <div id="join">
-    <input id="id" placeholder="ID host, mis. 123 456 789" inputmode="numeric" autocomplete="off">
-    <input id="pin" placeholder="PIN 6 digit" inputmode="numeric" autocomplete="off" maxlength="6">
-    <button id="btn">Connect</button>
+  <div id="joinCard">
+    <div class="logo">🖥️ FrameCast</div>
+    <div class="sub">Remote PC dari mana aja — masukkan ID & PIN dari aplikasi host</div>
+    <div id="join">
+      <input id="id" placeholder="ID host (9 digit)" inputmode="numeric" autocomplete="off" maxlength="9">
+      <input id="pin" placeholder="PIN (bebas)" autocomplete="off">
+      <button id="btn">Connect</button>
+    </div>
+    <div id="status"></div>
+    <div id="err"></div>
   </div>
-  <div id="status"></div>
-  <div id="err"></div>
   <div id="stage">
     <video id="video" autoplay playsinline muted></video>
     <div id="hint">klik/gambar = mouse · scroll = roda · keyboard = ketik</div>

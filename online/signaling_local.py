@@ -67,10 +67,11 @@ async def handle(ws):
                     msg.get("salt", ""),
                     ws,
                 )
+                room.plan = "premium" if msg.get("plan") == "premium" else "free"
                 ROOMS[host_id] = room
                 role = "host"
                 await send(ws, {"type": "registered", "host_id": host_id})
-                print(f"[room] host online: {host_id} ({room.name})")
+                print(f"[room] host online: {host_id} ({room.name}) plan={room.plan}")
 
             elif role == "host" and t == "client_joined_check":
                 pass  # reserved
@@ -96,7 +97,11 @@ async def handle(ws):
                     await send(ws, {
                         "type": "join_ok",
                         "client_id": client_id,
-                        "host": {"name": room.name, "platform": room.platform},
+                        "host": {
+                            "name": room.name,
+                            "platform": room.platform,
+                            "plan": getattr(room, "plan", "free"),
+                        },
                     })
                     await send(room.host_ws, {"type": "client_joined", "client_id": client_id})
                     print(f"[room] client {client_id} join host {host_id}")

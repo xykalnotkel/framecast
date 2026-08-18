@@ -45,6 +45,25 @@ from msgproto import format_id, make_host_id, make_pin, new_salt, pin_hash
 CLOCK_RATE = 90000  # timebase standar WebRTC
 
 
+def prefer_h264(pc):
+    """Beri tahu aiortc: prefer H.264 daripada VP8 (bitrate jauh lebih hemat).
+    Best-effort — kalau API nggak tersedia, biarkan default."""
+    try:
+        from aiortc.rtcrtpparameters import RTCRtpCodecParameters
+        from aiortc.rtcrtpsender import RTCRtpSender
+
+        caps = RTCRtpSender.getCapabilities("video")
+        h264 = [c for c in caps.codecs if c.mimeType.lower() == "video/h264" and c.parameters.get("profile-level-id") != "42001f"]
+        if not h264:
+            h264 = [c for c in caps.codecs if c.mimeType.lower() == "video/h264"]
+        if h264:
+            for t in pc.getTransceivers():
+                t.setCodecPreferences(h264[:2])
+            print("[video] codec preference: H.264")
+    except Exception as e:
+        print(f"[video] prefer_h264 skipped: {e}")
+
+
 class ScreenTrack(VideoStreamTrack):
     """VideoStreamTrack yang menyuntikkan frame layar ke WebRTC."""
 
@@ -111,6 +130,8 @@ class Host:
 
         pc = RTCPeerConnection()
         self.pc = pc
+        if self.args.codec == "h264":
+            prefer_h264(pc)
         track = ScreenTrack(self.args.capture, self.args.fps)
         pc.addTrack(track)
 
@@ -151,6 +172,7 @@ class Host:
         print(f"  ID   : {format_id(self.host_id)}")
         print(f"  PIN  : {pin}   (berlaku selama sesi ini)")
         print(f"  Nama : {self.args.name}")
+        print(f"  Plan : {self.args.plan.upper()}  (premium = client dapat TURN relay)")
         print("=" * 46)
 
         async with websockets.connect(
@@ -166,6 +188,7 @@ class Host:
                 "platform": sys.platform,
                 "pin_hash": ph,
                 "salt": salt,
+                "plan": self.args.plan,
             })
             reply = json.loads(await ws.recv())
             if reply.get("type") != "registered":
@@ -221,15 +244,30 @@ def main():
     ap.add_argument("--host-id", default=None)
     ap.add_argument("--pin", default=None)
     ap.add_argument("--name", default="PC-Kantor")
-    ap.add_argument("--capture", choices=["mss", "synthetic"], default="mss")
+    ap.add_argument("--plan", choices=["free", "premium"], default="free",
+                    help="premium = client dapat TURN relay (Cloudflare) & fitur "
+                         "high-perf. free = P2P saja (hosting biasa).")
+    ap.add_argument("--capture", choices=["mss", "synthetic", "dxgi"], default="mss",
+                    help="dxgi = DXGI Desktop Duplication (Windows, high-perf, "
+                         "120fps). mss = GDI (default). synthetic = frame tes.")
     ap.add_argument("--size", default=None, help="WxH buat synthetic, mis. 640x360")
     ap.add_argument("--fps", type=int, default=60)
+    ap.add_argument("--codec", choices=["vp8", "h264"], default="vp8",
+                    help="h264 = preferensi H.264 (bitrate hemat). vp8 = default.")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
     if args.capture == "synthetic":
         w, h = map(int, args.size.split("x")) if args.size else (640, 360)
         cap = SyntheticCapture(w, h)
+    elif args.capture == "dxgi":
+        try:
+            from highperf import DxgiCapture
+            cap = DxgiCapture()
+            print("[capture] DXGI Desktop Duplication aktif (high-perf)")
+        except Exception as e:
+            print(f"[capture] dxgi tidak bisa dipakai ({e}) — fallback ke mss")
+            cap = MssCapture()
     else:
         cap = MssCapture()
     args.capture = cap

@@ -10,12 +10,19 @@
  * (versi lokal untuk development).
  *
  * Endpoint:
- *   WS  wss://<worker>/ws?host=<hostId>   <- host & client connect di sini
- *   GET wss://<worker>/api/host?id=<hostId>  <- cek status host (online? nama?)
+ *   WS   wss://<worker>/ws?host=<hostId>   <- host & client connect di sini
+ *   GET wss://<worker>/api/host?id=<hostId>  <- cek status host (online? nama? plan?)
+ *   GET wss://<worker>/api/turn?host=<hostId> <- TURN credential (khusus plan premium)
+ *
+ * TURN: pakai Cloudflare Realtime TURN (gratis 1000 GB/bulan).
+ * - Buat TURN Key di dashboard: Realtime → TURN Keys → Create
+ * - Simpan TURN_KEY_ID & TURN_KEY_API_TOKEN sebagai secret Worker (wrangler secret put)
  */
 
 export interface Env {
   HOST_ROOMS: DurableObjectNamespace;
+  TURN_KEY_ID?: string;
+  TURN_KEY_API_TOKEN?: string;
 }
 
 export default {
@@ -39,16 +46,16 @@ export default {
       return env.HOST_ROOMS.get(id).fetch(request);
     }
 
-    if (url.pathname === "/api/host") {
-      const hostId = url.searchParams.get("id") || "";
+    if (url.pathname === "/api/host" || url.pathname === "/api/turn") {
+      const hostId = url.searchParams.get("host") || url.searchParams.get("id") || "";
       const id = env.HOST_ROOMS.idFromName(hostId);
       return env.HOST_ROOMS.get(id).fetch(request);
     }
 
-    return new Response("FrameCast signaling — /ws?host=<ID> | /api/host?id=<ID>", {
-      status: 200,
-      headers: { "content-type": "text/plain", ...cors },
-    });
+    return new Response(
+      "FrameCast signaling — /ws?host=<ID> | /api/host?id=<ID> | /api/turn?host=<ID>",
+      { status: 200, headers: { "content-type": "text/plain", ...cors } }
+    );
   },
 };
 
@@ -65,12 +72,18 @@ interface HostInfo {
   platform: string;
   pinHash: string;
   salt: string;
+  plan: "free" | "premium";
 }
 
 export class HostRoom implements DurableObject {
   private host: WebSocket | null = null;
   private hostInfo: HostInfo | null = null;
   private clients = new Map<string, WebSocket>();
+  private env: Env;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.env = env;
+  }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -81,11 +94,16 @@ export class HostRoom implements DurableObject {
             online: true,
             name: this.hostInfo?.name ?? "",
             platform: this.hostInfo?.platform ?? "",
+            plan: this.hostInfo?.plan ?? "free",
           }
         : { online: false };
       return Response.json(body, {
         headers: { "Access-Control-Allow-Origin": "*" },
       });
+    }
+
+    if (url.pathname === "/api/turn") {
+      return this.handleTurn();
     }
 
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
@@ -97,6 +115,47 @@ export class HostRoom implements DurableObject {
     server.accept();
     this.attach(server);
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** TURN credential — hanya untuk host plan premium (fitur berbayar). */
+  private async handleTurn(): Promise<Response> {
+    const cors = { "Access-Control-Allow-Origin": "*" };
+    // cek premium + TURN key sudah di-set
+    if (!this.hostInfo || this.hostInfo.plan !== "premium") {
+      return Response.json(
+        { error: "premium_only", message: "TURN relay khusus host plan premium" },
+        { status: 403, headers: cors }
+      );
+    }
+    if (!this.env.TURN_KEY_ID || !this.env.TURN_KEY_API_TOKEN) {
+      return Response.json(
+        { error: "turn_not_configured", message: "TURN_KEY_ID / TURN_KEY_API_TOKEN belum diset" },
+        { status: 500, headers: cors }
+      );
+    }
+    try {
+      const res = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${this.env.TURN_KEY_ID}/credentials/generate-ice-servers`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.env.TURN_KEY_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ttl: 86400 }), // berlaku 24 jam
+        }
+      );
+      const data = await res.json();
+      return Response.json(data, {
+        status: res.status,
+        headers: cors,
+      });
+    } catch (e: any) {
+      return Response.json(
+        { error: "turn_failed", message: String(e?.message ?? e) },
+        { status: 500, headers: cors }
+      );
+    }
   }
 
   private attach(ws: WebSocket): void {
@@ -124,6 +183,7 @@ export class HostRoom implements DurableObject {
         platform: msg.platform ?? "unknown",
         pinHash: msg.pin_hash ?? "",
         salt: msg.salt ?? "",
+        plan: msg.plan === "premium" ? "premium" : "free",
       };
       ws.send(JSON.stringify({ type: "registered", host_id: msg.host_id }));
       return;
@@ -149,7 +209,11 @@ export class HostRoom implements DurableObject {
         JSON.stringify({
           type: "join_ok",
           client_id: clientId,
-          host: { name: this.hostInfo.name, platform: this.hostInfo.platform },
+          host: {
+            name: this.hostInfo.name,
+            platform: this.hostInfo.platform,
+            plan: this.hostInfo.plan,
+          },
         })
       );
       this.host.send(JSON.stringify({ type: "client_joined", client_id: clientId }));

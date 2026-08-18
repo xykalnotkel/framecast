@@ -24,9 +24,9 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="PIN"
-            android:inputType="numberPassword"
-            android:maxLength="6" />
+            android:hint="PIN (bebas)"
+            android:inputType="textPassword"
+            android:maxLength="32" />
 
         <Button
             android:id="@+id/btnConnect"

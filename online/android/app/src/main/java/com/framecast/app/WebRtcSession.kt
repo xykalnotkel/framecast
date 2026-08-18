@@ -27,6 +27,7 @@ import java.util.concurrent.Executors
 class WebRtcSession(
     private val appContext: Context,
     private val renderer: SurfaceViewRenderer,
+    extraIce: JSONArray = JSONArray(),
     private val onSignal: (JSONObject) -> Unit,
 ) {
     private var pc: PeerConnection? = null
@@ -59,13 +60,24 @@ class WebRtcSession(
     }
 
     fun start() {
-        val rtcConfig = PeerConnection.RTCConfiguration(listOf(
+        // STUN gratis + TURN Cloudflare (kalau host premium, dari /api/turn)
+        val servers = mutableListOf(
             org.webrtc.PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer(),
             org.webrtc.PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
-            // TURN wajib kalau P2P gagal (CGNAT seluler). Self-host coturn:
-            // org.webrtc.PeerConnection.IceServer.builder("turn:host:3478")
-            //   .setUsername("u").setPassword("p").createIceServer()
-        ))
+        )
+        for (i in 0 until extraIce.length()) {
+            val item = extraIce.optJSONObject(i) ?: continue
+            val urls = item.optJSONArray("urls") ?: continue
+            for (u in 0 until urls.length()) {
+                try {
+                    val b = org.webrtc.PeerConnection.IceServer.builder(urls.getString(u))
+                    if (item.has("username")) b.setUsername(item.getString("username"))
+                    if (item.has("credential")) b.setPassword(item.getString("credential"))
+                    servers.add(b.createIceServer())
+                } catch (e: Exception) { /* skip url yang gagal */ }
+            }
+        }
+        val rtcConfig = PeerConnection.RTCConfiguration(servers)
         val connection = factory(appContext).createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState) = Unit

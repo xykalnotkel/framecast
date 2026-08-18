@@ -145,20 +145,73 @@ WebRTC otomatis tembus NAT biasa (host candidates + STUN). TAPI:
 - Saat P2P gagal, dibutuhkan **TURN relay** (server yang mem-forward video).
   Ini SATU-SATUNYA komponen yang bisa berbayar — karena menanggung bandwidth.
   AnyDesk/TeamViewer punya jaringan relay raksasa sendiri (itu mahal).
-- **Opsi TURN gratis untuk skala personal:**
-  1. **Self-host coturn di VPS gratis**: Oracle Cloud free tier (ARM 4 vCPU/
-     24GB RAM — gratis permanen) atau Google Cloud e2-micro / AWS free tier
-     750 jam. Pasang `coturn`, buka port 3478, tempel di `iceServers` semua
-     client. Bandwidth bulanan 1–2 TB di free tier — cukup buat remote
-     sesekali, nggak cukup buat streaming 24/7.
-  2. **Cloudflare Calls (TURN)** — punya free allowance; cek kebijakan saat ini.
-  3. **Open Relay (metered.ca)** — gratis untuk tes/development, jangan buat
-     produksi.
+- **Cloudflare Realtime TURN (dipakai proyek ini) — gratis 1.000 GB/bulan:**
+  1. Buka https://dash.cloudflare.com → **Realtime → TURN Keys → Create** (1 menit).
+  2. Salin **TURN Key ID** & **API Token** (yang muncul sekali, simpan aman).
+  3. Set sebagai secret Worker + secret GitHub Actions:
+     - Worker: `wrangler secret put TURN_KEY_ID` & `TURN_KEY_API_TOKEN`
+     - GitHub: `Settings → Secrets → CLOUDFLARE_TURN_KEY_ID` &
+       `CLOUDFLARE_TURN_KEY_API_TOKEN` (CI deploy otomatis set ke worker)
+  4. Server TURN: `turn.cloudflare.com:3478` (UDP/TCP), `turns:...:5349` (TLS).
+     Credential TTL 24 jam di-generate otomatis oleh Worker (`/api/turn`) saat
+     client connect ke host **premium** — client tidak pernah pegang key asli.
+  5. Harga: **gratis sampai 1.000 GB/bulan** (STUN selalu gratis), setelah itu
+     $0.05/GB — detail: developers.cloudflare.com/realtime/turn
+- **Cadangan kalau mau self-host**: coturn di Oracle Cloud free tier (ARM 4
+  vCPU/24GB, gratis permanen) — tetap valid sebagai alternatif.
+- **Open Relay (metered.ca)** — cuma buat tes/development.
 - **Strategi cerdas:** coba P2P dulu (gratis), **fallback ke TURN hanya kalau
   gagal**. Kode client sudah melakukan ini otomatis — TURN tinggal ditambah
   di daftar `iceServers`.
 
 ---
+
+
+## 6b. Fitur PREMIUM (gating)
+
+Sistem punya konsep **plan host: `free` atau `premium`** (di-set lewat
+`--plan` di host). Ini cara "bisnis" tanpa bikin 2 aplikasi:
+
+| Fitur | Free | Premium |
+|---|---|---|
+| P2P langsung (LAN / NAT ringan) | ✅ | ✅ |
+| **TURN relay** (CGNAT seluler, tembus mana-mana) | ❌ | ✅ |
+| High-perf DXGI + NVENC (120fps) | ❌ | ✅ |
+| Badge PREMIUM di client web/Android | — | ✅ |
+
+Cara kerja: host daftar dengan plan → backend kasih tau client di `join_ok`
+→ kalau premium, client ambil TURN credential dari `/api/turn` & badge
+muncul. Gating server-side (`/api/turn` cuma balas kalau host premium) —
+jadi bukan cuma pajangan di UI.
+
+```bash
+python host_rtc.py --plan premium --capture dxgi --codec h264 --fps 120
+```
+
+Integrasi pembayaran (Stripe / Google Play / QRIS) belum dipasang — tinggal
+nentuin paket & nyambungin ke penentuan plan host. Struktur backend sudah
+siap tinggal isi.
+
+## 6c. HIGH-PERF: DXGI + NVENC (120 fps)
+
+Modul `online/highperf.py` — jalur 120+ fps di Windows + GPU:
+
+```bash
+# benchmark dulu (ukur capture+encode beneran di mesinmu)
+python highperf.py --bench --size 1920x1080 --fps 120
+
+# terus pakai di host online
+python host_rtc.py --capture dxgi --codec h264 --fps 120 --plan premium
+```
+
+- `--capture dxgi` = **DXGI Desktop Duplication** via `dxcam` (capture GPU,
+  zero-copy, dapat frame termutakhir, jauh lebih ringan dari mss/GDI).
+- `--codec h264` = preferensi **H.264** (bitrate jauh lebih hemat dari VP8);
+  encode tetap internal WebRTC, untuk NVENC hardware langsung di dalam
+  WebRTC gunakan jalur GStreamer `webrtcbin` (lihat ARCHITECTURE.md §12)
+  atau sambungkan `NvencEncoder` ke transport sendiri.
+- `requirements-host.txt` = dependency opsional host (dxcam). Sudah otomatis
+  terpasang di CI build exe.
 
 ## 7. Alternatif backend yang kamu sebut (Firebase / Supabase / OneSignal)
 
@@ -199,12 +252,12 @@ paling akhir sebagai fitur push.
 |---|---|---|
 | v2.0 | signaling lokal + host + client CLI (P2P WebRTC) | ✅ **selesai & teruji** |
 | v2.1 | Cloudflare Worker produksi + web client + Android | ✅ kode siap, tinggal deploy |
-| v2.2 | **TURN self-host (coturn)** + fallback otomatis | 📋 berikutnya |
+| v2.2 | **TURN Cloudflare Realtime** (gratis 1000GB) + premium gating | ✅ kode siap (butuh TURN key di dashboard) |
 | v2.3 | host jadi .exe (PyInstaller) + autostart/tray icon | 📋 |
 | v2.4 | OneSignal push + daftar host favorit di client | 📋 opsional |
 | v2.5 | host Android (MediaProjection capture) | 📋 biar HP juga bisa jadi host |
 | v2.6 | audio Opus + clipboard sync | 📋 |
-| v2.7 | 120fps: DXGI + NVENC di host (lihat ARCHITECTURE.md) | 📋 saat butuh performa |
+| v2.7 | 120fps: DXGI + NVENC di host (`--capture dxgi --codec h264`) | ✅ kode siap, butuh GPU Windows |
 
 ---
 

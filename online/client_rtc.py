@@ -25,6 +25,7 @@ from aiortc import (
     RTCPeerConnection,
     RTCSessionDescription,
 )
+from aiortc.rtcconfiguration import RTCConfiguration, RTCIceServer
 
 
 async def main():
@@ -48,10 +49,34 @@ async def main():
             print(f"[client] GAGAL join: {reply.get('reason')}")
             return 1
         host_info = reply["host"]
+        plan = host_info.get("plan", "free")
         print(f"[client] join OK -> host: {host_info.get('name')} "
-              f"({host_info.get('platform')})")
+              f"({host_info.get('platform')}) plan={plan.upper()}")
 
-        pc = RTCPeerConnection()
+        # kalau host premium, ambil TURN credential dari backend
+        ice_servers = [{"urls": ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"]}]
+        if plan == "premium":
+            try:
+                import urllib.request
+
+                api = args.signaling.replace("ws://", "http://").replace("wss://", "https://")
+                api = api.split("/ws")[0]
+                with urllib.request.urlopen(f"{api}/api/turn?host={args.host_id}", timeout=10) as r:
+                    data = json.loads(r.read())
+                if data.get("iceServers"):
+                    ice_servers += data["iceServers"]
+                    print(f"[client] TURN relay aktif ({len(data['iceServers'])} server)")
+            except Exception as e:
+                print(f"[client] ambil TURN gagal ({e}) — P2P saja")
+
+        servers = []
+        for item in ice_servers:
+            servers.append(RTCIceServer(
+                urls=item["urls"],
+                username=item.get("username"),
+                credential=item.get("credential"),
+            ))
+        pc = RTCPeerConnection(RTCConfiguration(iceServers=servers))
         # penting: deklarasi di offer bahwa kita mau TERIMA video dari host
         # (kalau tidak, offer tidak punya m-line video -> host gagal menjawab)
         pc.addTransceiver("video", direction="recvonly")
