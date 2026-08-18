@@ -86,7 +86,7 @@ class WebRtcSession(
             }
 
             override fun onTrack(transceiver: RtpTransceiver) {
-                val track = transceiver.track()
+                val track = transceiver.receiver.track()
                 if (track?.kind() == MediaStreamTrack.VIDEO_TRACK_KIND && track is VideoTrack) {
                     track.addSink(renderer) // render ke SurfaceViewRenderer (GPU)
                 }
@@ -99,8 +99,9 @@ class WebRtcSession(
         pc = connection
 
         // kita hanya menerima video dari host
-        connection.addTransceiver(MediaStreamTrack.VIDEO_TRACK_KIND,
-            RtpTransceiver.RtpTransceiverDirection.RECV_ONLY)
+        connection.addTransceiver(
+            MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO,
+            RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
 
         // DataChannel input (ter-negosiasi, id 0 — sama dengan host)
         val init = DataChannel.Init().apply {
